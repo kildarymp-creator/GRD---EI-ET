@@ -1982,10 +1982,9 @@ if not df_dashboard.empty:
     # FILTROS DO DASHBOARD
     # ======================================
 
-    colf1, colf2, colf3 = st.columns(3)
+    colf1, colf2, colf3, colf4 = st.columns(4)
 
     with colf1:
-
         ano_dashboard = st.selectbox(
             "Ano",
             ["Todos"] + sorted(
@@ -1999,7 +1998,19 @@ if not df_dashboard.empty:
         )
 
     with colf2:
+        agrupamento_dashboard = st.selectbox(
+            "Agrupamento",
+            ["Todos"] + sorted(
+                df_dashboard["Agrupamento"]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
+            ),
+            key="dashboard_agrupamento"
+        )
 
+    with colf3:
         contratada_dashboard = st.selectbox(
             "Contratada",
             ["Todas"] + sorted(
@@ -2012,8 +2023,7 @@ if not df_dashboard.empty:
             key="dashboard_contratada"
         )
 
-    with colf3:
-
+    with colf4:
         empreendimento_dashboard = st.selectbox(
             "Empreendimento",
             ["Todos"] + sorted(
@@ -2025,7 +2035,7 @@ if not df_dashboard.empty:
             ),
             key="dashboard_empreendimento"
         )
-
+        
     # ======================================
     # APLICAR FILTROS
     # ======================================
@@ -2035,6 +2045,13 @@ if not df_dashboard.empty:
         df_dashboard = df_dashboard[
             df_dashboard["Ano"].astype(str)
             == ano_dashboard
+        ]
+
+    if agrupamento_dashboard != "Todos":
+
+        df_dashboard = df_dashboard[
+            df_dashboard["Agrupamento"].astype(str)
+            == agrupamento_dashboard
         ]
 
     if contratada_dashboard != "Todas":
@@ -2597,6 +2614,219 @@ if not df_indicador.empty:
     )
 
 # ==========================================
+# DOCUMENTOS PRÓXIMOS DO VENCIMENTO
+# ==========================================
+
+st.markdown("---")
+st.markdown("### ⏳ Documentos Próximos do Vencimento")
+
+df_vencimento = df_dashboard_base.copy()
+
+if not df_vencimento.empty:
+
+    # ======================================
+    # FILTROS INDEPENDENTES
+    # ======================================
+
+    fv1, fv2, fv3, fv4 = st.columns(4)
+
+    with fv1:
+        filtro_ano_venc = st.selectbox(
+            "Ano",
+            ["Todos"] + sorted(
+                df_vencimento["Ano"]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
+            ),
+            key="filtro_ano_vencimento"
+        )
+
+    with fv2:
+        filtro_agrupamento_venc = st.selectbox(
+            "Agrupamento",
+            ["Todos"] + sorted(
+                df_vencimento["Agrupamento"]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
+            ),
+            key="filtro_agrupamento_vencimento"
+        )
+
+    with fv3:
+        filtro_contratada_venc = st.selectbox(
+            "Contratada",
+            ["Todas"] + sorted(
+                df_vencimento["Contratada"]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
+            ),
+            key="filtro_contratada_vencimento"
+        )
+
+    with fv4:
+        filtro_empreendimento_venc = st.selectbox(
+            "Empreendimento",
+            ["Todos"] + sorted(
+                df_vencimento["Empreendimento"]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
+            ),
+            key="filtro_empreendimento_vencimento"
+        )
+
+    # ======================================
+    # APLICAR FILTROS
+    # ======================================
+
+    if filtro_ano_venc != "Todos":
+        df_vencimento = df_vencimento[
+            df_vencimento["Ano"].astype(str)
+            == filtro_ano_venc
+        ]
+
+    if filtro_agrupamento_venc != "Todos":
+        df_vencimento = df_vencimento[
+            df_vencimento["Agrupamento"].astype(str)
+            == filtro_agrupamento_venc
+        ]
+
+    if filtro_contratada_venc != "Todas":
+        df_vencimento = df_vencimento[
+            df_vencimento["Contratada"].astype(str)
+            == filtro_contratada_venc
+        ]
+
+    if filtro_empreendimento_venc != "Todos":
+        df_vencimento = df_vencimento[
+            df_vencimento["Empreendimento"].astype(str)
+            == filtro_empreendimento_venc
+        ]
+
+    # ======================================
+    # TRATAMENTO
+    # ======================================
+
+    df_vencimento["Dias p/ Vencimento GRD"] = pd.to_numeric(
+        df_vencimento["Dias p/ Vencimento GRD"],
+        errors="coerce"
+    ).fillna(-1)
+
+    df_vencimento["Qtd. Docs"] = pd.to_numeric(
+        df_vencimento["Qtd. Docs"],
+        errors="coerce"
+    ).fillna(0)
+
+    df_vencimento = df_vencimento[
+        df_vencimento["Status GRD"]
+        .astype(str)
+        .str.upper()
+        .eq("NO PRAZO")
+    ]
+
+    # ======================================
+    # FAIXAS DE VENCIMENTO
+    # SOMA DA COLUNA QTD. DOCS
+    # ======================================
+
+    faixa_25 = df_vencimento.loc[
+        (df_vencimento["Dias p/ Vencimento GRD"] <= 25) &
+        (df_vencimento["Dias p/ Vencimento GRD"] > 20),
+        "Qtd. Docs"
+    ].sum()
+
+    faixa_20 = df_vencimento.loc[
+        (df_vencimento["Dias p/ Vencimento GRD"] <= 20) &
+        (df_vencimento["Dias p/ Vencimento GRD"] > 15),
+        "Qtd. Docs"
+    ].sum()
+
+    faixa_15 = df_vencimento.loc[
+        (df_vencimento["Dias p/ Vencimento GRD"] <= 15) &
+        (df_vencimento["Dias p/ Vencimento GRD"] > 10),
+        "Qtd. Docs"
+    ].sum()
+
+    faixa_10 = df_vencimento.loc[
+        (df_vencimento["Dias p/ Vencimento GRD"] <= 10) &
+        (df_vencimento["Dias p/ Vencimento GRD"] > 5),
+        "Qtd. Docs"
+    ].sum()
+
+    faixa_5 = df_vencimento.loc[
+        (df_vencimento["Dias p/ Vencimento GRD"] <= 5) &
+        (df_vencimento["Dias p/ Vencimento GRD"] >= 0),
+        "Qtd. Docs"
+    ].sum()
+
+    df_faixas = pd.DataFrame({
+        "Prazo": [
+            "21 a 25 dias",
+            "16 a 20 dias",
+            "11 a 15 dias",
+            "6 a 10 dias",
+            "0 a 5 dias"
+        ],
+        "Quantidade": [
+            faixa_25,
+            faixa_20,
+            faixa_15,
+            faixa_10,
+            faixa_5
+        ],
+        "Cor": [
+            "#00B050",
+            "#70AD47",
+            "#FFC000",
+            "#ED7D31",
+            "#C00000"
+        ]
+    })
+
+    fig_venc = go.Figure()
+
+    fig_venc.add_trace(
+        go.Bar(
+            x=df_faixas["Prazo"],
+            y=df_faixas["Quantidade"],
+            text=df_faixas["Quantidade"],
+            textposition="outside",
+            marker_color=df_faixas["Cor"],
+            showlegend=False
+        )
+    )
+
+    fig_venc.update_layout(
+        title="Documentos Próximos do Vencimento",
+        height=500,
+        xaxis_title="Faixa de Vencimento",
+        yaxis_title="Quantidade de Documentos",
+        plot_bgcolor="white",
+        paper_bgcolor="white"
+    )
+
+    fig_venc.update_xaxes(
+        showgrid=False
+    )
+
+    fig_venc.update_yaxes(
+        showgrid=True,
+        gridcolor="#D9D9D9"
+    )
+
+    st.plotly_chart(
+        fig_venc,
+        use_container_width=True
+    )
+
+# ==========================================
 # INDICADOR IAPE
 # ==========================================
 
@@ -2875,7 +3105,7 @@ if not df_iape.empty:
             showlegend=False,
             marker_color=colors,
             text=[
-                f"{valor:.1f}%"
+                f"{valor:.0f}%"
                 for valor in df_resultado["IAPE"]
             ],
             textposition="outside"
@@ -2887,7 +3117,7 @@ if not df_iape.empty:
             x=df_resultado["Mês"],
             y=[95] * 12,
             mode="lines",
-            name="Meta 95%",
+            showlegend=False,
             line=dict(
                 color="red",
                 width=3,
@@ -2905,7 +3135,7 @@ if not df_iape.empty:
         xaxis_title="Mês",
         yaxis_title="IAPE (%)",
         yaxis=dict(
-            range=[0, 110]
+            range=[0, 115]
         ),
         legend=dict(
             orientation="h",
