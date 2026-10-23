@@ -205,16 +205,332 @@ if st.sidebar.button("🆕 Nova GRD", type="primary"):
 
     st.session_state.reset_form += 1
 
+    # Limpar dados importados
+    if "dados_importados" in st.session_state:
+        del st.session_state["dados_importados"]
+
+    # Limpar mensagens
+    if "campos_nao_importados" in st.session_state:
+        del st.session_state["campos_nao_importados"]
+
+    if "campos_nao_localizados" in st.session_state:
+        del st.session_state["campos_nao_localizados"]
+
+    if "fichas_importadas" in st.session_state:
+        del st.session_state["fichas_importadas"]
 
     st.rerun()
 
+# ==========================================
+# IMPORTAÇÃO FORMULÁRIO XLSB
+# ==========================================
+
+def importar_formulario_xlsb(arquivo):
+
+    df_form = pd.read_excel(
+        arquivo,
+        engine="pyxlsb",
+        header=None
+    )
+
+   
+    dados = {}
+
+    dados["Contratada"] = str(df_form.iloc[6,3]).strip()
+
+    dados["Subestacao"] = str(df_form.iloc[6,6]).strip()
+
+    dados["Contrato"] = str(df_form.iloc[6,8]).strip()
+
+    dados["Empreendimento"] = str(df_form.iloc[7,3]).strip()
+
+    dados["Agrupamento"] = str(df_form.iloc[7,6]).strip()
+
+    dados["Subagrupamento"] = str(df_form.iloc[7,8]).strip()
+
+    dados["Identificacao"] = str(df_form.iloc[8,3]).strip()
+
+    dados["ResponsavelContratada"] = (
+        str(df_form.iloc[6,12]).strip()
+    )
+
+    dados["ResponsavelCemig"] = (
+        str(df_form.iloc[7,12]).strip()
+    )
+
+    # Excel serial date
+    try:
+
+        dados["DataEntrada"] = pd.to_datetime(
+            float(df_form.iloc[8,6]),
+            unit="D",
+            origin="1899-12-30"
+        ).date()
+
+    except:
+
+        dados["DataEntrada"] = None
+
+    dados["ResponsavelContratada"] = (
+        str(df_form.iloc[6,12]).strip()
+    )
+
+    dados["ResponsavelCemig"] = (
+        str(df_form.iloc[7,12]).strip()
+    )
+
+    # ==========================================
+    # IMPORTAR RELAÇÃO DE FICHAS
+    # ==========================================
+
+    fichas_com_erro = []
+
+    fichas = []
+
+    for linha in range(12, len(df_form)):
+
+        identificacao = df_form.iloc[linha, 2]
+
+        linha_texto = " ".join(
+            [
+                str(valor)
+                for valor in df_form.iloc[linha]
+                if pd.notna(valor)
+            ]
+        ).upper()
+
+        if "OBSERVA" in linha_texto:
+            break
+
+        if (
+            pd.isna(identificacao)
+            or str(identificacao).strip() == ""
+            or str(identificacao).strip().lower() == "nan"
+        ):
+            continue
+
+        campos_vazios = []
+
+        if pd.isna(df_form.iloc[linha, 3]):
+            campos_vazios.append("Título da Ficha")
+
+        if pd.isna(df_form.iloc[linha, 9]):
+            campos_vazios.append("Qtd. Docs")
+
+        if pd.isna(df_form.iloc[linha, 10]):
+            campos_vazios.append("Qtd. Pág.")
+
+        if pd.isna(df_form.iloc[linha, 11]):
+            campos_vazios.append("Rev.")
+
+        if pd.isna(df_form.iloc[linha, 12]):
+            campos_vazios.append("Escopo(s)")
+
+        if campos_vazios:
+
+            fichas_com_erro.append(
+                f"Item {df_form.iloc[linha,1]}: "
+                + ", ".join(campos_vazios)
+            )
+
+        fichas.append({
+
+            "Item": (
+                    ""
+                    if pd.isna(df_form.iloc[linha, 1])
+                    else str(df_form.iloc[linha, 1])
+                ),
+
+                "Identificação da Ficha": (
+                    ""
+                    if pd.isna(df_form.iloc[linha, 2])
+                    else str(df_form.iloc[linha, 2])
+                ),
+
+                "Título da Ficha": (
+                    ""
+                    if pd.isna(df_form.iloc[linha, 3])
+                    else str(df_form.iloc[linha, 3])
+                ),
+
+                "Qtd. Docs": (
+                    ""
+                    if pd.isna(df_form.iloc[linha, 9])
+                    else df_form.iloc[linha, 9]
+                ),
+
+                "Qtd. Pág.": (
+                    ""
+                    if pd.isna(df_form.iloc[linha, 10])
+                    else df_form.iloc[linha, 10]
+                ),
+
+                "Rev.": (
+                    ""
+                    if pd.isna(df_form.iloc[linha, 11])
+                    else str(df_form.iloc[linha, 11])
+                ),
+
+                "Escopo(s)": (
+                    ""
+                    if pd.isna(df_form.iloc[linha, 12])
+                    else str(df_form.iloc[linha, 12])
+                )
+        })
+
+    dados["Fichas"] = pd.DataFrame(fichas)
+
+    if not dados["Fichas"].empty:
+
+        dados["Fichas"] = (
+            dados["Fichas"]
+            .fillna("")
+        )
+
+        for coluna in [
+
+            "Identificação da Ficha",
+            "Título da Ficha",
+            "Rev.",
+            "Escopo(s)"
+
+        ]:
+
+            dados["Fichas"][coluna] = (
+                dados["Fichas"][coluna]
+                .astype(str)
+            )
+
+    dados["FichasComErro"] = fichas_com_erro
+
+    return dados
+
 #Título
 st.sidebar.write('## Cadastrar GRD')
+
+# ==========================================
+# IMPORTAR FORMULÁRIO GRD
+# ==========================================
+
+st.sidebar.markdown("---")
+
+arquivo_importado = st.sidebar.file_uploader(
+    "📂 Importar Formulário GRD",
+    type=["xlsb"]
+)
+
+if arquivo_importado is None:
+
+    if "campos_nao_localizados" in st.session_state:
+        del st.session_state["campos_nao_localizados"]
+
+    if "campos_nao_importados" in st.session_state:
+        del st.session_state["campos_nao_importados"]
+
+    if "dados_importados" in st.session_state:
+        del st.session_state["dados_importados"]
+
+
+dados_importados = st.session_state.get(
+    "dados_importados",
+    {}
+)
+
+if arquivo_importado:
+
+    try:
+
+            dados_importados = importar_formulario_xlsb(
+                arquivo_importado
+            )
+
+            st.session_state["dados_importados"] = dados_importados
+
+            st.session_state["fichas_importadas"] = (
+                dados_importados.get(
+                    "Fichas",
+                    pd.DataFrame()
+                    )
+            )
+
+            if dados_importados.get("FichasComErro"):
+
+                st.sidebar.error(
+                    "⚠️ Campos em branco encontrados na Tabela Relação de Fichas para Cadastro:\n\n• "
+                    + "\n• ".join(
+                        dados_importados["FichasComErro"]
+                    )
+                )
+
+            # ==========================================
+            # CAMPOS NÃO ENCONTRADOS NO FORMULÁRIO
+            # ==========================================
+
+            campos_nao_importados = []
+
+            campos_formulario = {
+                "Contratada": "Contratada",
+                "Subestacao": "Subestação",
+                "Contrato": "Contrato",
+                "Empreendimento": "Empreendimento",
+                "Agrupamento": "Agrupamento",
+                "Subagrupamento": "Subagrupamento",
+                "ResponsavelContratada":
+                    "Responsável Contratada",
+                "ResponsavelCemig":
+                    "Responsável CEMIG - Recebimento",
+                "Identificacao":
+                    "Identificação Contratada",
+                "DataEntrada":
+                    "Data de Entrada"
+            }
+
+            for chave, descricao in campos_formulario.items():
+
+                valor = dados_importados.get(chave)
+
+                if (
+                    valor is None
+                    or str(valor).strip() == ""
+                    or str(valor).strip().lower() == "nan"
+                ):
+
+                    campos_nao_importados.append(
+                        descricao
+                    )
+
+            # ==========================================
+            # MENSAGENS
+            # ==========================================
+
+            if campos_nao_importados:
+
+                st.session_state[
+                    "campos_nao_importados"
+                ] = campos_nao_importados
+
+                st.sidebar.warning(
+                    "⚠️ Campos não encontrados no formulário:\n\n• "
+                    + "\n• ".join(campos_nao_importados)
+                )
+
+            else:
+
+                st.sidebar.success(
+                    "✅ Formulário importado com sucesso"
+                )
+
+    except Exception as erro:
+
+            st.sidebar.error(
+                f"Erro ao importar: {erro}"
+            )
 
 # Ler Excel
 
 def carregar_base_interna():
     return pd.read_excel("BASE INTERNA.xlsx")
+
 
 df = carregar_base_interna()
 
@@ -225,10 +541,42 @@ df["SUBESTACAO"]
 .astype(str)
 .tolist()
 )
+
+indice_subestacao = 0
+
+if dados_importados:
+
+    for i, valor in enumerate(lista_subestacoes):
+
+        if (
+            str(valor).strip().upper()
+            ==
+            str(
+                dados_importados.get(
+                    "Subestacao",
+                    ""
+                )
+            ).strip().upper()
+        ):
+
+            indice_subestacao = i
+            break
+
+if (
+    arquivo_importado
+    and indice_subestacao > 0
+):
+
+    st.session_state[
+        f"subestacao_{st.session_state.reset_form}"
+    ] = lista_subestacoes[
+        indice_subestacao
+    ]
+
 subestacao = st.sidebar.selectbox(
-"Subestação",
-lista_subestacoes,
-key=f"subestacao_{st.session_state.reset_form}"
+    "Subestação",
+    lista_subestacoes,
+    key=f"subestacao_{st.session_state.reset_form}"
 )
 
 # Filtrar Contratadas
@@ -238,10 +586,42 @@ df["CONTRATADA"]
 .astype(str)
 .tolist()
 )
+
+indice_contratada = 0
+
+if dados_importados:
+
+    for i, valor in enumerate(lista_contratadas):
+
+        if (
+            str(valor).strip().upper()
+            ==
+            str(
+                dados_importados.get(
+                    "Contratada",
+                    ""
+                )
+            ).strip().upper()
+        ):
+
+            indice_contratada = i
+            break
+
+if (
+    arquivo_importado
+    and indice_contratada > 0
+):
+
+    st.session_state[
+        f"contratada_{st.session_state.reset_form}"
+    ] = lista_contratadas[
+        indice_contratada
+    ]
+
 contratada = st.sidebar.selectbox(
-"Contratada",
-lista_contratadas,
-key=f"contratada_{st.session_state.reset_form}"
+    "Contratada",
+    lista_contratadas,
+    key=f"contratada_{st.session_state.reset_form}"
 )
 
 # Filtrar contratos conforme a contratada
@@ -297,11 +677,64 @@ elif contratada == "WEG":
 else:
     contratos = []
 
+if (
+    arquivo_importado
+    and dados_importados
+):
+    try:
+
+        st.session_state[
+            f"contrato_{st.session_state.reset_form}"
+        ] = str(
+            dados_importados["Contrato"]
+        )
+
+    except:
+        pass
+
 # Selectbox dos contratos
+indice_contrato = 0
+
+if dados_importados:
+
+    valor_importado = str(
+        dados_importados.get(
+            "Contrato",
+            ""
+        )
+    ).strip()
+
+    for i, valor in enumerate([""] + contratos):
+
+        if str(valor).strip() == valor_importado:
+
+            indice_contrato = i
+            break
+
+indice_contrato = 0
+
+if dados_importados:
+
+    valor_importado = str(
+        dados_importados.get(
+            "Contrato",
+            ""
+        )
+    ).strip()
+
+    for i, valor in enumerate(
+        [""] + contratos
+    ):
+
+        if str(valor).strip() == valor_importado:
+
+            indice_contrato = i
+            break
+
 lista_contratos = st.sidebar.selectbox(
-"Contrato",
-[""] + contratos,
-key=f"contrato_{st.session_state.reset_form}"
+    "Contrato",
+    [""] + contratos,
+    key=f"contrato_{st.session_state.reset_form}"
 )
 
 # Filtrar empreendimentos conforme a contratada
@@ -350,11 +783,78 @@ elif contratada == "WEG":
 else:
     empreendimentos = []
 
+if (
+    arquivo_importado
+    and dados_importados
+):
+    try:
+
+        st.session_state[
+            f"empreendimento_{st.session_state.reset_form}"
+        ] = (
+            dados_importados[
+                "Empreendimento"
+            ]
+        )
+
+    except:
+        pass
+
 # Selectbox dos empreendimentos
+indice_empreendimento = 0
+
+if dados_importados:
+
+    valor_importado = str(
+        dados_importados.get(
+            "Empreendimento",
+            ""
+        )
+    ).strip().upper()
+
+    for i, valor in enumerate(
+        [""] + empreendimentos
+    ):
+
+        if (
+            str(valor)
+            .strip()
+            .upper()
+            ==
+            valor_importado
+        ):
+
+            indice_empreendimento = i
+            break
+
+indice_empreendimento = 0
+
+if dados_importados:
+
+    valor_importado = str(
+        dados_importados.get(
+            "Empreendimento",
+            ""
+        )
+    ).strip().upper()
+
+    for i, valor in enumerate(
+        [""] + empreendimentos
+    ):
+
+        if (
+            str(valor).strip().upper()
+            ==
+            valor_importado
+        ):
+
+            indice_empreendimento = i
+            break
+
 lista_empreendimento = st.sidebar.selectbox(
-"Empreendimento",
-[""] + empreendimentos,
-key=f"empreendimento_{st.session_state.reset_form}"
+    "Empreendimento",
+    [""] + empreendimentos,
+    key=f"empreendimento_{st.session_state.reset_form}"
 )
 
 # Filtrar responsável conforme a contratada
@@ -403,11 +903,52 @@ elif contratada == "WEG":
 else:
     responsável_contratadas = []
 
+if (
+    arquivo_importado
+    and dados_importados
+):
+    try:
+
+        st.session_state[
+            f"responsavel_contratada_{st.session_state.reset_form}"
+        ] = (
+            dados_importados[
+                "ResponsavelContratada"
+            ]
+        )
+
+    except:
+        pass
+
 # Selectbox dos responsáveis contratadas
+indice_resp_contratada = 0
+
+if dados_importados:
+
+    valor_importado = str(
+        dados_importados.get(
+            "ResponsavelContratada",
+            ""
+        )
+    ).strip().upper()
+
+    for i, valor in enumerate(
+        [""] + responsável_contratadas
+    ):
+
+        if (
+            str(valor).strip().upper()
+            ==
+            valor_importado
+        ):
+
+            indice_resp_contratada = i
+            break
+
 lista_responsavel_contratadas = st.sidebar.selectbox(
-"Responsável Contratadas",
-[""] + responsável_contratadas,
-key=f"responsavel_contratada_{st.session_state.reset_form}"
+    "Responsável Contratadas",
+    [""] + responsável_contratadas,
+    key=f"responsavel_contratada_{st.session_state.reset_form}"
 )
 
 # Filtrar Agrupamentos
@@ -417,10 +958,54 @@ df["AGRUPAMENTO"]
 .astype(str)
 .tolist()
 )
+
+if (
+    arquivo_importado
+    and dados_importados
+):
+    try:
+
+        st.session_state[
+            f"agrupamento_{st.session_state.reset_form}"
+        ] = (
+            dados_importados[
+                "Agrupamento"
+            ]
+        )
+
+    except:
+        pass
+
+indice_agrupamento = 0
+
+if dados_importados:
+
+    valor_importado = str(
+        dados_importados.get(
+            "Agrupamento",
+            ""
+        )
+    ).strip().upper()
+
+    for i, valor in enumerate(
+        lista_agrupamentos
+    ):
+
+        if (
+            str(valor)
+            .strip()
+            .upper()
+            ==
+            valor_importado
+        ):
+
+            indice_agrupamento = i
+            break
+
 agrupamento = st.sidebar.selectbox(
-"Agrupamento",
-lista_agrupamentos,
-key=f"agrupamento_{st.session_state.reset_form}"
+    "Agrupamento",
+    lista_agrupamentos,
+    key=f"agrupamento_{st.session_state.reset_form}"
 )
 
 # Filtrar subagrupamentos conforme agrupamento
@@ -445,11 +1030,46 @@ elif agrupamento == "LINHAS DE TRANSMISSÃO - LT":
 else:
     subagrupamentos = []
 
-    # Selectbox dos subagrupamentos
+# Selectbox dos subagrupamentos
+indice_subagrupamento = 0
+
+if dados_importados:
+
+    valor_importado = str(
+        dados_importados.get(
+            "Subagrupamento",
+            ""
+        )
+    ).strip().upper()
+
+    for i, valor in enumerate(
+        [""] + subagrupamentos
+    ):
+
+        if (
+            str(valor).strip().upper()
+            ==
+            valor_importado
+        ):
+
+            indice_subagrupamento = i
+            break
+
+if (
+    arquivo_importado
+    and indice_subagrupamento > 0
+):
+
+    st.session_state[
+        f"subagrupamento_{st.session_state.reset_form}"
+    ] = (
+        [""] + subagrupamentos
+    )[indice_subagrupamento]
+
 lista_subagrupamentos = st.sidebar.selectbox(
-"Subagrupamento",
-[""] + subagrupamentos,
-key=f"subagrupamento_{st.session_state.reset_form}"
+    "Subagrupamento",
+    [""] + subagrupamentos,
+    key=f"subagrupamento_{st.session_state.reset_form}"
 )
 
 # Filtrar responsáveis CEMIG conforme agrupamento
@@ -474,21 +1094,184 @@ elif agrupamento == "LINHAS DE TRANSMISSÃO - LT":
 else:
     responsável_cemig = []
 
-    # Selectbox dos subagrupamentos
+if (
+    arquivo_importado
+    and dados_importados
+):
+    try:
+
+        st.session_state[
+            f"responsavel_cemig_{st.session_state.reset_form}"
+        ] = (
+            dados_importados[
+                "ResponsavelCemig"
+            ]
+        )
+
+    except:
+        pass
+
+# Selectbox dos subagrupamentos
+indice_resp_cemig = 0
+
+if dados_importados:
+
+    valor_importado = str(
+        dados_importados.get(
+            "ResponsavelCemig",
+            ""
+        )
+    ).strip().upper()
+
+    for i, valor in enumerate(
+        [""] + responsável_cemig
+    ):
+
+        if (
+            str(valor).strip().upper()
+            ==
+            valor_importado
+        ):
+
+            indice_resp_cemig = i
+            break
+
 lista_responsavel_cemig = st.sidebar.selectbox(
-"Responsável CEMIG - Recebimento",
-[""] + responsável_cemig,
-key=f"responsavel_cemig_{st.session_state.reset_form}"
+    "Responsável CEMIG - Recebimento",
+    [""] + responsável_cemig,
+    key=f"responsavel_cemig_{st.session_state.reset_form}"
 )
 
-    # Identificação Contratada
-identificação_contratada  = st.sidebar.text_input("Identificação Contratada",
-                                                  key=f"identificacao_contratada_{st.session_state.reset_form}")
+# Identificação Contratada
+valor_identificacao = ""
+
+if dados_importados:
+
+    valor_identificacao = (
+        dados_importados.get(
+            "Identificacao",
+            ""
+        )
+    )
+
+if arquivo_importado:
+
+    st.session_state[
+        f"identificacao_contratada_{st.session_state.reset_form}"
+    ] = valor_identificacao
+
+identificação_contratada = st.sidebar.text_input(
+    "Identificação Contratada",
+    key=f"identificacao_contratada_{st.session_state.reset_form}"
+)
 
 # Data de Entrada
-data = st.sidebar.date_input('Data de Entrada',value=None,
-format="DD/MM/YYYY",
-key=f"data_entrada_{st.session_state.reset_form}")
+data_importada = None
+
+if dados_importados:
+
+    data_importada = dados_importados.get(
+        "DataEntrada",
+        None
+    )
+
+if (
+    arquivo_importado
+    and data_importada is not None
+):
+
+    st.session_state[
+        f"data_entrada_{st.session_state.reset_form}"
+    ] = data_importada
+
+data = st.sidebar.date_input(
+    "Data de Entrada",
+    value=None,
+    format="DD/MM/YYYY",
+    key=f"data_entrada_{st.session_state.reset_form}"
+)
+
+# ==========================================
+# CAMPOS IMPORTADOS NÃO LOCALIZADOS
+# NA BASE INTERNA
+# ==========================================
+
+campos_nao_localizados = []
+
+if (
+    dados_importados.get("Contrato")
+    and lista_contratos == ""
+):
+    campos_nao_localizados.append(
+        "Contrato"
+    )
+
+if (
+    dados_importados.get("Empreendimento")
+    and lista_empreendimento == ""
+):
+    campos_nao_localizados.append(
+        "Empreendimento"
+    )
+
+if (
+    dados_importados.get(
+        "ResponsavelContratada"
+    )
+    and lista_responsavel_contratadas == ""
+):
+    campos_nao_localizados.append(
+        "Responsável Contratada"
+    )
+
+if (
+    dados_importados.get("Agrupamento")
+    and agrupamento == ""
+):
+    campos_nao_localizados.append(
+        "Agrupamento"
+    )
+
+if (
+    dados_importados.get(
+        "Subagrupamento"
+    )
+    and lista_subagrupamentos == ""
+):
+    campos_nao_localizados.append(
+        "Subagrupamento"
+    )
+
+if (
+    dados_importados.get(
+        "ResponsavelCemig"
+    )
+    and lista_responsavel_cemig == ""
+):
+    campos_nao_localizados.append(
+        "Responsável CEMIG - Recebimento"
+    )
+
+if campos_nao_localizados:
+
+    st.session_state[
+        "campos_nao_localizados"
+    ] = campos_nao_localizados
+
+    st.sidebar.error(
+        "⚠️ Campos encontrados no formulário, porém não localizados na BASE INTERNA:\n\n• "
+        + "\n• ".join(
+            sorted(
+                set(
+                    campos_nao_localizados
+                )
+            )
+        )
+    )
+
+elif "campos_nao_localizados" in st.session_state:
+
+    del st.session_state["campos_nao_localizados"]
 
 # Gerar Número da GRD
 sigla_agrupamento = agrupamento.split(" - ")[-1]
@@ -548,17 +1331,33 @@ else:
 
 st.markdown("#### Relação de Fichas para Cadastro")
 
-dados = pd.DataFrame(
+dados = st.session_state.get(
+    "fichas_importadas",
+    pd.DataFrame()
+)
+
+linhas_vazias = pd.DataFrame(
 {
-"Item": [""] * 100,
-"Identificação da Ficha": [""] * 100,
-"Título da Ficha": [""] * 100,
-"Qtd. Docs": [""] * 100,
-"Qtd. Pág.": [""] * 100,
-"Rev.": [""] * 100,
-"Escopo(s)": [""] * 100,
+    "Item": [""] * 80,
+    "Identificação da Ficha": [""] * 80,
+    "Título da Ficha": [""] * 80,
+    "Qtd. Docs": [""] * 80,
+    "Qtd. Pág.": [""] * 80,
+    "Rev.": [""] * 80,
+    "Escopo(s)": [""] * 80,
 }
 )
+
+if not dados.empty:
+
+    dados = pd.concat(
+        [dados, linhas_vazias],
+        ignore_index=True
+    )
+
+else:
+
+    dados = linhas_vazias
 
 tabela_fichas = st.data_editor(
 dados,
@@ -632,11 +1431,41 @@ if st.button("📋 Cadastrar GRD", type="primary"):
         else:
         
             linhas_com_erro = []
-        
+
             for idx, linha in fichas_preenchidas.iterrows():
-        
-             if linha.isna().any():
-                linhas_com_erro.append(str(int(linha["Item"])))
+
+                campos_vazios = []
+
+                for coluna in [
+
+                    "Item",
+                    "Identificação da Ficha",
+                    "Título da Ficha",
+                    "Qtd. Docs",
+                    "Qtd. Pág.",
+                    "Rev.",
+                    "Escopo(s)"
+
+                ]:
+
+                    if (
+                        pd.isna(linha[coluna])
+                        or str(linha[coluna]).strip() == ""
+                    ):
+
+                        campos_vazios.append(coluna)
+
+                if campos_vazios:
+
+                    item = (
+                        f"Item {linha['Item']}"
+                        if pd.notna(linha["Item"])
+                        else f"Linha {idx + 1}"
+                    )
+
+                    linhas_com_erro.append(
+                        f"{item}: {', '.join(campos_vazios)}"
+                    )
         
             if linhas_com_erro:
                 st.error(
