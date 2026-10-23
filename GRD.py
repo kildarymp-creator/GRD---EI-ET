@@ -1,4 +1,4 @@
-# Criar Site
+# Teste 23/10/26
 # Manter Site no Ar: streamlit run GRD.py
 # Instalar Biblioteca: pip install  xxxxxx
 
@@ -1721,7 +1721,10 @@ if st.button("📋 Cadastrar GRD", type="primary"):
 
                     wb_base.save(arquivo_base)
 
-                    atualizar_base_github()
+                    if atualizar_base_github():
+                            st.success("Base atualizada no GitHub")
+                    else:
+                            st.error("Falha ao atualizar GitHub")
                     
                     wb_base.calculation.fullCalcOnLoad = True
                     wb_base.calculation.forceFullCalc = True
