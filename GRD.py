@@ -13,6 +13,50 @@ from copy import copy
 from openpyxl.formula.translate import Translator
 from openpyxl.styles import Alignment
 from openpyxl.styles import Border, Side
+from github import Github
+
+# ==========================================
+# ATUALIZAR BASE NO GITHUB
+# ==========================================
+def atualizar_base_github():
+
+    try:
+
+        token = st.secrets["GITHUB_TOKEN"]
+
+        g = Github(token)
+
+        repo = g.get_repo(
+            "kildarymp-creator/GRD---EI-ET"
+        )
+
+        arquivo_remoto = repo.get_contents(
+            "BASE DE DADOS GRDs CADASTRADAS.xlsx"
+        )
+
+        with open(
+            "BASE DE DADOS GRDs CADASTRADAS.xlsx",
+            "rb"
+        ) as arquivo:
+
+            conteudo = arquivo.read()
+
+        repo.update_file(
+            arquivo_remoto.path,
+            "Atualização automática da base",
+            conteudo,
+            arquivo_remoto.sha
+        )
+
+        return True
+
+    except Exception as erro:
+
+        st.error(
+            f"Erro ao atualizar GitHub: {erro}"
+        )
+
+        return False
 
 # ==========================================
 # CARREGAR GRDs COM CACHE
@@ -1674,6 +1718,8 @@ if st.button("📋 Cadastrar GRD", type="primary"):
 
                     wb_base.save(arquivo_base)
 
+                    atualizar_base_github()
+                    
                     wb_base.calculation.fullCalcOnLoad = True
                     wb_base.calculation.forceFullCalc = True
 
@@ -2544,6 +2590,8 @@ if st.button(
 
         wb.save(arquivo_base)
 
+        atualizar_base_github()
+        
         carregar_grds.clear()
         st.cache_data.clear()
 
