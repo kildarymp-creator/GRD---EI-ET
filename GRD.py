@@ -30,10 +30,6 @@ def atualizar_base_github():
             "kildarymp-creator/GRD---EI-ET"
         )
 
-        arquivo_remoto = repo.get_contents(
-            "BASE DE DADOS GRDs CADASTRADAS.xlsx"
-        )
-
         with open(
             "BASE DE DADOS GRDs CADASTRADAS.xlsx",
             "rb"
@@ -41,11 +37,18 @@ def atualizar_base_github():
 
             conteudo = arquivo.read()
 
+        # Buscar SHA mais recente
+        arquivo_remoto = repo.get_contents(
+            "BASE DE DADOS GRDs CADASTRADAS.xlsx",
+            ref="main"
+        )
+
         repo.update_file(
-            arquivo_remoto.path,
-            "Atualização automática da base",
-            conteudo,
-            arquivo_remoto.sha
+            path=arquivo_remoto.path,
+            message="Atualização automática da base",
+            content=conteudo,
+            sha=arquivo_remoto.sha,
+            branch="main"
         )
 
         return True
@@ -53,7 +56,7 @@ def atualizar_base_github():
     except Exception as erro:
 
         st.error(
-            f"Erro ao atualizar GitHub: {erro}"
+            f"Erro ao atualizar GitHub: {repr(erro)}"
         )
 
         return False
@@ -2589,8 +2592,11 @@ if st.button(
             )
 
         wb.save(arquivo_base)
-
-        atualizar_base_github()
+        
+        if atualizar_base_github():
+            st.success("Base atualizada no GitHub")
+        else:
+            st.error("Falha ao atualizar GitHub")
         
         carregar_grds.clear()
         st.cache_data.clear()
