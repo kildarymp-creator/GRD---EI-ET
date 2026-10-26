@@ -1,4 +1,4 @@
-# Teste 23/10/26
+# Criar Site
 # Manter Site no Ar: streamlit run GRD.py
 # Instalar Biblioteca: pip install  xxxxxx
 
@@ -3717,7 +3717,7 @@ if not df_vencimento.empty:
 # ==========================================
 
 st.markdown("---")
-st.markdown("### 📊 IAPE - Indicador de Análise de Projetos de SEs, LTs e Documentos de Equipamentos")
+st.markdown("### 📊 IADT - Indicador de Análise de Documentação Técnica")
 
 df_iape = df_dashboard_base.copy()
 
@@ -3955,7 +3955,7 @@ if not df_iape.empty:
 
     with col1:
         st.metric(
-            "IAPE Acumulado",
+            "IADT Acumulado",
             f"{iape_acumulado:.0f}%"
         )
 
@@ -4013,13 +4013,13 @@ if not df_iape.empty:
     )
 
     fig_iape.update_layout(
-        title="Indicador IAPE por Mês",
+        title="Indicador IADT por Mês",
         height=600,
         hovermode="x unified",
         plot_bgcolor="white",
         paper_bgcolor="white",
         xaxis_title="Mês",
-        yaxis_title="IAPE (%)",
+        yaxis_title="IADT (%)",
         yaxis=dict(
             range=[0, 115]
         ),
