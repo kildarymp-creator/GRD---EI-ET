@@ -621,7 +621,7 @@ if (
     ]
 
 subestacao = st.sidebar.selectbox(
-    "Subestação",
+    "Subestação / Linha",
     lista_subestacoes,
     key=f"subestacao_{st.session_state.reset_form}"
 )
@@ -993,7 +993,7 @@ if dados_importados:
             break
 
 lista_responsavel_contratadas = st.sidebar.selectbox(
-    "Responsável Contratadas",
+    "Responsável Contratada",
     [""] + responsável_contratadas,
     key=f"responsavel_contratada_{st.session_state.reset_form}"
 )
@@ -1743,6 +1743,10 @@ if st.button("📋 Cadastrar GRD", type="primary"):
 
                 nome_arquivo = f"{numero_grd}.xlsx"
 
+                df_exportacao = df_exportacao.rename(columns={
+                    "Subestação": "Subestação / Linha"
+                })
+
                 df_exportacao.to_excel(nome_arquivo, index=False)
 
                 # Abrir arquivo gerado
@@ -1888,7 +1892,7 @@ try:
             )
 
             filtro_subestacao = st.selectbox(
-                "Subestação",
+                "Subestação / Linha",
                 lista_subestacoes,
                 key="filtro_subestacao"
             )
@@ -2703,6 +2707,10 @@ if st.button(
             buffer,
             engine="openpyxl"
         ) as writer:
+
+            df_download = df_download.rename(columns={
+                "Subestação": "Subestação / Linha"
+            })
 
             df_download.to_excel(
                 writer,
