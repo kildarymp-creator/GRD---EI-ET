@@ -517,7 +517,7 @@ if arquivo_importado:
 
             campos_formulario = {
                 "Contratada": "Contratada",
-                "Subestacao": "Subestação",
+                "Subestacao": "Subestação / Linha",
                 "Contrato": "Contrato",
                 "Empreendimento": "Empreendimento",
                 "Agrupamento": "Agrupamento",
