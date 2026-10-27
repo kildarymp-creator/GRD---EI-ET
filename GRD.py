@@ -720,7 +720,14 @@ elif contratada == "WEG":
     .astype(int)
     .astype(str)
     .tolist())
-    
+
+elif contratada == "RS ENGENHARIA":
+    contratos = (df["RS ENGENHARIA_CONTRATOS"]
+    .dropna()
+    .astype(int)
+    .astype(str)
+    .tolist())
+
 else:
     contratos = []
 
@@ -823,6 +830,12 @@ elif contratada == "VISION":
 
 elif contratada == "WEG":
     empreendimentos = (df["WEG_EMPREENDIMENTOS"]
+    .dropna()
+    .astype(str)
+    .tolist())
+
+elif contratada == "RS ENGENHARIA":
+    empreendimentos = (df["RS ENGENHARIA_EMPREENDIMENTOS"]
     .dropna()
     .astype(str)
     .tolist())
@@ -946,6 +959,13 @@ elif contratada == "WEG":
     .dropna()
     .astype(str)
     .tolist())
+
+elif contratada == "RS ENGENHARIA":
+    responsável_contratadas = (df["RS ENGENHARIA_RESPONSAVEIS"]
+    .dropna()
+    .astype(str)
+    .tolist())
+
 
 else:
     responsável_contratadas = []
