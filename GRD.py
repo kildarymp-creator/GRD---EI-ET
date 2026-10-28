@@ -14,6 +14,7 @@ from openpyxl.formula.translate import Translator
 from openpyxl.styles import Alignment
 from openpyxl.styles import Border, Side
 from github import Github
+from github.GithubException import GithubException
 
 # ==========================================
 # ATUALIZAR BASE NO GITHUB
@@ -37,7 +38,6 @@ def atualizar_base_github():
 
             conteudo = arquivo.read()
 
-        # Buscar SHA mais recente
         arquivo_remoto = repo.get_contents(
             "BASE DE DADOS GRDs CADASTRADAS.xlsx",
             ref="main"
@@ -53,14 +53,29 @@ def atualizar_base_github():
 
         return True
 
-    except Exception as erro:
+    except GithubException as erro:
+
+        if erro.status == 409:
+
+            st.error(
+                "⚠️ Outro usuário atualizou a Base de Dados antes desta operação. Atualize a página e tente novamente."
+            )
+
+            return False
 
         st.error(
-            f"Erro ao atualizar GitHub: {repr(erro)}"
+            f"Erro GitHub: {erro}"
         )
 
         return False
 
+    except Exception as erro:
+
+        st.error(
+            f"Erro ao atualizar GitHub: {erro}"
+        )
+
+        return False
 # ==========================================
 # CARREGAR GRDs COM CACHE
 # ==========================================
@@ -1741,10 +1756,10 @@ if st.button("📋 Cadastrar GRD", type="primary"):
 
                     wb_base.save(arquivo_base)
 
-                    if atualizar_base_github():
-                            st.success("Base atualizada no GitHub")
-                    else:
-                            st.error("Falha ao atualizar GitHub")
+                    if not atualizar_base_github():
+                        st.stop()
+
+                    st.success("Base atualizada no GitHub")                 
                     
                     wb_base.calculation.fullCalcOnLoad = True
                     wb_base.calculation.forceFullCalc = True
@@ -2620,10 +2635,10 @@ if st.button(
 
         wb.save(arquivo_base)
         
-        if atualizar_base_github():
-            st.success("Base atualizada no GitHub")
-        else:
-            st.error("Falha ao atualizar GitHub")
+        if not atualizar_base_github():
+            st.stop()
+
+        st.success("Base atualizada no GitHub")
         
         carregar_grds.clear()
         st.cache_data.clear()
