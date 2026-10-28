@@ -1756,10 +1756,12 @@ if st.button("📋 Cadastrar GRD", type="primary"):
 
                     wb_base.save(arquivo_base)
 
-                    if not atualizar_base_github():
-                        st.stop()
-
-                    st.success("Base atualizada no GitHub")                 
+                    if atualizar_base_github():
+                        st.success("Base atualizada no GitHub")
+                    else:
+                        st.warning(
+                            "GRD cadastrada localmente, porém a atualização do GitHub falhou."
+                        )               
                     
                     wb_base.calculation.fullCalcOnLoad = True
                     wb_base.calculation.forceFullCalc = True
@@ -2635,11 +2637,13 @@ if st.button(
 
         wb.save(arquivo_base)
         
-        if not atualizar_base_github():
-            st.stop()
+        if atualizar_base_github():
+            st.success("Base atualizada no GitHub")
+        else:
+            st.warning(
+                "Devolução registrada localmente, porém a atualização do GitHub falhou."
+            )
 
-        st.success("Base atualizada no GitHub")
-        
         carregar_grds.clear()
         st.cache_data.clear()
 
