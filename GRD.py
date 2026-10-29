@@ -2517,448 +2517,452 @@ if st.button(
         "BASE DE DADOS GRDs CADASTRADAS.xlsx"
     )
 
-    try:
+    with st.spinner(
+        "⏳ Atualizando Base de Dados e sincronizando com o GitHub..."
+    ):
 
-        wb = load_workbook(arquivo_base)
+            try:
 
-        fichas_nao_encontradas = []
+                wb = load_workbook(arquivo_base)
 
-        fichas_ja_devolvidas = []
+                fichas_nao_encontradas = []
 
-        registros_para_atualizar = []
+                fichas_ja_devolvidas = []
 
-        # ==================================
-        # PROCURAR FICHAS
-        # ==================================
+                registros_para_atualizar = []
 
-        for _, ficha in fichas_devolvidas.iterrows():
+                # ==================================
+                # PROCURAR FICHAS
+                # ==================================
 
-            identificacao = (
-                str(
-                    ficha["Identificação da Ficha"]
-                )
-                .replace(".0", "")
-                .strip()
-            )
+                for _, ficha in fichas_devolvidas.iterrows():
 
-            encontrada = False
-
-            for aba in wb.sheetnames:
-
-                ws = wb[aba]
-
-                for linha in range(
-                    2,
-                    ws.max_row + 1
-                ):
-
-                    numero_grd_base = str(
-                        ws.cell(linha, 1).value
-                    ).strip()
-
-                    identificacao_base = (
+                    identificacao = (
                         str(
-                            ws.cell(linha, 12).value
+                            ficha["Identificação da Ficha"]
                         )
                         .replace(".0", "")
                         .strip()
                     )
 
-                    if (
-                        numero_grd_base == grd_selecionada
-                        and
-                        identificacao_base == identificacao
-                    ):
+                    encontrada = False
 
-                        encontrada = True
+                    for aba in wb.sheetnames:
 
-                        status_carimbo_existente = (
-                            ws.cell(linha, 18).value
-                        )
+                        ws = wb[aba]
 
-                        status_ficha_existente = (
-                            ws.cell(linha, 19).value
-                        )
-
-                        responsavel_existente = (
-                            ws.cell(linha, 20).value
-                        )
-
-                        data_saida_existente = (
-                            ws.cell(linha, 21).value
-                        )
-
-                        if (
-                            status_carimbo_existente not in [None, ""]
-                            or status_ficha_existente not in [None, ""]
-                            or responsavel_existente not in [None, ""]
-                            or data_saida_existente not in [None, ""]
+                        for linha in range(
+                            2,
+                            ws.max_row + 1
                         ):
 
-                            fichas_ja_devolvidas.append(
-                                identificacao
-                            )
+                            numero_grd_base = str(
+                                ws.cell(linha, 1).value
+                            ).strip()
 
-                        else:
-
-                            registros_para_atualizar.append(
-                                (
-                                    ws,
-                                    linha,
-                                    ficha
+                            identificacao_base = (
+                                str(
+                                    ws.cell(linha, 12).value
                                 )
+                                .replace(".0", "")
+                                .strip()
                             )
 
-                        break
-
-                if encontrada:
-                    break
-
-            if not encontrada:
-
-                fichas_nao_encontradas.append(
-                    identificacao
-                )
-
-        # ==================================
-        # FICHAS NÃO ENCONTRADAS
-        # ==================================
-
-        if fichas_nao_encontradas:
-
-            st.session_state.processando_devolucao = False
-
-            st.error(
-                "As seguintes fichas não foram encontradas:"
-            )
-
-            for ficha in fichas_nao_encontradas:
-
-                st.write(
-                    f"• {ficha}"
-                )
-
-            st.stop()
-
-        # ==================================
-        # FICHAS JÁ DEVOLVIDAS
-        # ==================================
-
-        if fichas_ja_devolvidas:
-
-            st.session_state.processando_devolucao = False
-
-            st.error(
-                "As seguintes fichas já foram devolvidas:"
-            )
-
-            for ficha in fichas_ja_devolvidas:
-
-                st.write(
-                    f"• {ficha}"
-                )
-
-            st.stop()
-
-        # ==================================
-        # ATUALIZAR BASE
-        # ==================================
-
-        for ws, linha, ficha in registros_para_atualizar:
-
-            ws.cell(
-                linha,
-                18
-            ).value = ficha[
-                "Status Carimbo"
-            ]
-
-            ws.cell(
-                linha,
-                19
-            ).value = ficha[
-                "Status Ficha"
-            ]
-
-            ws.cell(
-                linha,
-                20
-            ).value = (
-                responsavel_devolucao
-            )
-
-            ws.cell(
-                linha,
-                21
-            ).value = data_saida.strftime(
-                "%d/%m/%Y"
-            )
-
-        wb.save(arquivo_base)
-        wb.close()
-
-        st.session_state.processando_devolucao = False
-        
-        if atualizar_base_github():
-            st.success("Base atualizada no GitHub")
-        else:
-            st.warning(
-                "Devolução registrada localmente, porém a atualização do GitHub falhou."
-            )
-
-        carregar_grds.clear()
-        st.cache_data.clear()
-
-        # ==================================
-        # GERAR ARQUIVO DAS FICHAS DEVOLVIDAS
-        # ==================================
-
-        from io import BytesIO
-
-        colunas_exportacao = [
-            "Item",
-            "Número GRD",
-            "Subestação",
-            "Contratada",
-            "Contrato",
-            "Empreendimento",
-            "Responsável Contratada",
-            "Agrupamento",
-            "Subagrupamento",
-            "Responsável CEMIG - Recebimento",
-            "Data de Entrada",
-            "Identificação da Ficha",
-            "Título da Ficha",
-            "Qtd. Docs",
-            "Qtd. Pág.",
-            "Rev.",
-            "Escopo(s)",
-            "Status Carimbo",
-            "Status Ficha",
-            "Responsável CEMIG - Devolução",
-            "Data de Saída",
-            "Observações"
-            
-        ]
-
-        dados_download = []
-
-        # SOMENTE AS FICHAS DEVOLVIDAS
-        for ws, linha_excel, ficha in registros_para_atualizar:
-
-            registro = {}
-
-            # Item informado na tabela de devolução
-            registro["Item"] = ficha["Item"]
-
-            for col in range(1, ws.max_column + 1):
-
-                cabecalho = ws.cell(
-                    1,
-                    col
-                ).value
-
-                if (
-                    cabecalho in colunas_exportacao
-                    and cabecalho != "Item"
-                ):
-
-                    registro[cabecalho] = ws.cell(
-                        linha_excel,
-                        col
-                    ).value
-
-            dados_download.append(registro)
-
-        df_download = pd.DataFrame(dados_download)
-        
-        df_download["Observações"] = ""
-
-        ordem_colunas = [
-            "Item",
-            "Número GRD",
-            "Subestação",
-            "Contratada",
-            "Contrato",
-            "Empreendimento",
-            "Responsável Contratada",
-            "Agrupamento",
-            "Subagrupamento",
-            "Responsável CEMIG - Recebimento",
-            "Data de Entrada",
-            "Identificação da Ficha",
-            "Título da Ficha",
-            "Qtd. Docs",
-            "Qtd. Pág.",
-            "Rev.",
-            "Escopo(s)",
-            "Status Carimbo",
-            "Status Ficha",
-            "Responsável CEMIG - Devolução",
-            "Data de Saída",
-            "Observações"
-        ]
-
-        df_download = df_download[ordem_colunas]
-
-
-        buffer = BytesIO()
-
-        with pd.ExcelWriter(
-            buffer,
-            engine="openpyxl"
-        ) as writer:
-
-            df_download = df_download.rename(columns={
-                "Subestação": "Subestação / Linha"
-            })
-
-            df_download.to_excel(
-                writer,
-                sheet_name="DEVOLUCAO GRD",
-                index=False
-            )
-
-            ws_export = writer.book["DEVOLUCAO GRD"]
-
-            for coluna in ws_export.iter_cols():
-
-                titulo = coluna[0].value
-
-                if titulo in [
-                    "Data de Entrada",
-                    "Data de Saída"
-                    
-                ]:
-
-                    for celula in coluna[1:]:
-
-                        celula.number_format = "dd/mm/yyyy"
-
-            # Formatar cabeçalho
-            for cell in ws_export[1]:
-
-                cell.font = Font(
-                    name="Aptos Narrow",
-                    size=12,
-                    bold=True,
-                    italic=True
-                )
-
-            # Aplicar bordas em todas as células utilizadas
-
-            borda_fina = Border(
-                left=Side(style="thin"),
-                right=Side(style="thin"),
-                top=Side(style="thin"),
-                bottom=Side(style="thin")
-            )
-
-            for linha in ws_export.iter_rows(
-                min_row=1,
-                max_row=ws_export.max_row,
-                min_col=1,
-                max_col=ws_export.max_column
-            ):
-
-                for cell in linha:
-
-                    if cell.value is not None:
-
-                        cell.border = borda_fina
-
-            # Ajustar largura automática
-            for coluna in ws_export.columns:
-
-                maior_tamanho = 0
-
-                letra_coluna = get_column_letter(
-                    coluna[0].column
-                )
-
-                for cell in coluna:
-
-                    if cell.value is not None:
-
-                        maior_tamanho = max(
-                            maior_tamanho,
-                            len(str(cell.value))
+                            if (
+                                numero_grd_base == grd_selecionada
+                                and
+                                identificacao_base == identificacao
+                            ):
+
+                                encontrada = True
+
+                                status_carimbo_existente = (
+                                    ws.cell(linha, 18).value
+                                )
+
+                                status_ficha_existente = (
+                                    ws.cell(linha, 19).value
+                                )
+
+                                responsavel_existente = (
+                                    ws.cell(linha, 20).value
+                                )
+
+                                data_saida_existente = (
+                                    ws.cell(linha, 21).value
+                                )
+
+                                if (
+                                    status_carimbo_existente not in [None, ""]
+                                    or status_ficha_existente not in [None, ""]
+                                    or responsavel_existente not in [None, ""]
+                                    or data_saida_existente not in [None, ""]
+                                ):
+
+                                    fichas_ja_devolvidas.append(
+                                        identificacao
+                                    )
+
+                                else:
+
+                                    registros_para_atualizar.append(
+                                        (
+                                            ws,
+                                            linha,
+                                            ficha
+                                        )
+                                    )
+
+                                break
+
+                        if encontrada:
+                            break
+
+                    if not encontrada:
+
+                        fichas_nao_encontradas.append(
+                            identificacao
                         )
 
-                ws_export.column_dimensions[
-                    letra_coluna
-                ].width = min(
-                    maior_tamanho + 5,
-                    80
+                # ==================================
+                # FICHAS NÃO ENCONTRADAS
+                # ==================================
+
+                if fichas_nao_encontradas:
+
+                    st.session_state.processando_devolucao = False
+
+                    st.error(
+                        "As seguintes fichas não foram encontradas:"
+                    )
+
+                    for ficha in fichas_nao_encontradas:
+
+                        st.write(
+                            f"• {ficha}"
+                        )
+
+                    st.stop()
+
+                # ==================================
+                # FICHAS JÁ DEVOLVIDAS
+                # ==================================
+
+                if fichas_ja_devolvidas:
+
+                    st.session_state.processando_devolucao = False
+
+                    st.error(
+                        "As seguintes fichas já foram devolvidas:"
+                    )
+
+                    for ficha in fichas_ja_devolvidas:
+
+                        st.write(
+                            f"• {ficha}"
+                        )
+
+                    st.stop()
+
+                # ==================================
+                # ATUALIZAR BASE
+                # ==================================
+
+                for ws, linha, ficha in registros_para_atualizar:
+
+                    ws.cell(
+                        linha,
+                        18
+                    ).value = ficha[
+                        "Status Carimbo"
+                    ]
+
+                    ws.cell(
+                        linha,
+                        19
+                    ).value = ficha[
+                        "Status Ficha"
+                    ]
+
+                    ws.cell(
+                        linha,
+                        20
+                    ).value = (
+                        responsavel_devolucao
+                    )
+
+                    ws.cell(
+                        linha,
+                        21
+                    ).value = data_saida.strftime(
+                        "%d/%m/%Y"
+                    )
+
+                wb.save(arquivo_base)
+                wb.close()
+
+                st.session_state.processando_devolucao = False
+                
+                if atualizar_base_github():
+                    st.success("Base atualizada no GitHub")
+                else:
+                    st.warning(
+                        "Devolução registrada localmente, porém a atualização do GitHub falhou."
+                    )
+
+                carregar_grds.clear()
+                st.cache_data.clear()
+
+                # ==================================
+                # GERAR ARQUIVO DAS FICHAS DEVOLVIDAS
+                # ==================================
+
+                from io import BytesIO
+
+                colunas_exportacao = [
+                    "Item",
+                    "Número GRD",
+                    "Subestação",
+                    "Contratada",
+                    "Contrato",
+                    "Empreendimento",
+                    "Responsável Contratada",
+                    "Agrupamento",
+                    "Subagrupamento",
+                    "Responsável CEMIG - Recebimento",
+                    "Data de Entrada",
+                    "Identificação da Ficha",
+                    "Título da Ficha",
+                    "Qtd. Docs",
+                    "Qtd. Pág.",
+                    "Rev.",
+                    "Escopo(s)",
+                    "Status Carimbo",
+                    "Status Ficha",
+                    "Responsável CEMIG - Devolução",
+                    "Data de Saída",
+                    "Observações"
+                    
+                ]
+
+                dados_download = []
+
+                # SOMENTE AS FICHAS DEVOLVIDAS
+                for ws, linha_excel, ficha in registros_para_atualizar:
+
+                    registro = {}
+
+                    # Item informado na tabela de devolução
+                    registro["Item"] = ficha["Item"]
+
+                    for col in range(1, ws.max_column + 1):
+
+                        cabecalho = ws.cell(
+                            1,
+                            col
+                        ).value
+
+                        if (
+                            cabecalho in colunas_exportacao
+                            and cabecalho != "Item"
+                        ):
+
+                            registro[cabecalho] = ws.cell(
+                                linha_excel,
+                                col
+                            ).value
+
+                    dados_download.append(registro)
+
+                df_download = pd.DataFrame(dados_download)
+                
+                df_download["Observações"] = ""
+
+                ordem_colunas = [
+                    "Item",
+                    "Número GRD",
+                    "Subestação",
+                    "Contratada",
+                    "Contrato",
+                    "Empreendimento",
+                    "Responsável Contratada",
+                    "Agrupamento",
+                    "Subagrupamento",
+                    "Responsável CEMIG - Recebimento",
+                    "Data de Entrada",
+                    "Identificação da Ficha",
+                    "Título da Ficha",
+                    "Qtd. Docs",
+                    "Qtd. Pág.",
+                    "Rev.",
+                    "Escopo(s)",
+                    "Status Carimbo",
+                    "Status Ficha",
+                    "Responsável CEMIG - Devolução",
+                    "Data de Saída",
+                    "Observações"
+                ]
+
+                df_download = df_download[ordem_colunas]
+
+
+                buffer = BytesIO()
+
+                with pd.ExcelWriter(
+                    buffer,
+                    engine="openpyxl"
+                ) as writer:
+
+                    df_download = df_download.rename(columns={
+                        "Subestação": "Subestação / Linha"
+                    })
+
+                    df_download.to_excel(
+                        writer,
+                        sheet_name="DEVOLUCAO GRD",
+                        index=False
+                    )
+
+                    ws_export = writer.book["DEVOLUCAO GRD"]
+
+                    for coluna in ws_export.iter_cols():
+
+                        titulo = coluna[0].value
+
+                        if titulo in [
+                            "Data de Entrada",
+                            "Data de Saída"
+                            
+                        ]:
+
+                            for celula in coluna[1:]:
+
+                                celula.number_format = "dd/mm/yyyy"
+
+                    # Formatar cabeçalho
+                    for cell in ws_export[1]:
+
+                        cell.font = Font(
+                            name="Aptos Narrow",
+                            size=12,
+                            bold=True,
+                            italic=True
+                        )
+
+                    # Aplicar bordas em todas as células utilizadas
+
+                    borda_fina = Border(
+                        left=Side(style="thin"),
+                        right=Side(style="thin"),
+                        top=Side(style="thin"),
+                        bottom=Side(style="thin")
+                    )
+
+                    for linha in ws_export.iter_rows(
+                        min_row=1,
+                        max_row=ws_export.max_row,
+                        min_col=1,
+                        max_col=ws_export.max_column
+                    ):
+
+                        for cell in linha:
+
+                            if cell.value is not None:
+
+                                cell.border = borda_fina
+
+                    # Ajustar largura automática
+                    for coluna in ws_export.columns:
+
+                        maior_tamanho = 0
+
+                        letra_coluna = get_column_letter(
+                            coluna[0].column
+                        )
+
+                        for cell in coluna:
+
+                            if cell.value is not None:
+
+                                maior_tamanho = max(
+                                    maior_tamanho,
+                                    len(str(cell.value))
+                                )
+
+                        ws_export.column_dimensions[
+                            letra_coluna
+                        ].width = min(
+                            maior_tamanho + 5,
+                            80
+                        )
+
+                # Nome do arquivo
+                
+                arquivo_devolucao = (
+                f"DEVOLUCAO_{grd_selecionada}.xlsx"
+                )
+                
+                # Salvar na pasta raiz
+                
+                with open(
+                    arquivo_devolucao,
+                    "wb"
+                ) as arquivo:
+                
+                    arquivo.write(
+                        buffer.getvalue()
+                    )
+                
+                buffer.seek(0)
+                
+                # Disponibilizar para download
+                
+                nome_data = data_saida.strftime("%d%m%y")
+
+                arquivo_devolucao = (
+                    f"DEVOLUCAO_{grd_selecionada}_{nome_data}.xlsx"
                 )
 
-        # Nome do arquivo
-        
-        arquivo_devolucao = (
-        f"DEVOLUCAO_{grd_selecionada}.xlsx"
-        )
-        
-        # Salvar na pasta raiz
-        
-        with open(
-            arquivo_devolucao,
-            "wb"
-        ) as arquivo:
-        
-            arquivo.write(
-                buffer.getvalue()
-            )
-        
-        buffer.seek(0)
-        
-        # Disponibilizar para download
-        
-        nome_data = data_saida.strftime("%d%m%y")
+                # Salvar na pasta raiz
 
-        arquivo_devolucao = (
-            f"DEVOLUCAO_{grd_selecionada}_{nome_data}.xlsx"
-        )
+                with open(
+                    arquivo_devolucao,
+                    "wb"
+                ) as arquivo:
 
-        # Salvar na pasta raiz
+                    arquivo.write(
+                        buffer.getvalue()
+                    )
 
-        with open(
-            arquivo_devolucao,
-            "wb"
-        ) as arquivo:
+                # Disponibilizar para download
 
-            arquivo.write(
-                buffer.getvalue()
-            )
+                st.session_state[
+                    "arquivo_devolucao_bytes"
+                ] = buffer.getvalue()
 
-        # Disponibilizar para download
+                st.session_state[
+                    "arquivo_devolucao_nome"
+                ] = arquivo_devolucao
 
-        st.session_state[
-            "arquivo_devolucao_bytes"
-        ] = buffer.getvalue()
+                carregar_grds.clear()
+                st.cache_data.clear()
 
-        st.session_state[
-            "arquivo_devolucao_nome"
-        ] = arquivo_devolucao
+                st.session_state["msg_devolucao"] = (
+                    f"✅ {grd_selecionada} foi atualizada com sucesso!"
+                )
 
-        carregar_grds.clear()
-        st.cache_data.clear()
+                st.session_state.processando_devolucao = False
 
-        st.session_state["msg_devolucao"] = (
-            f"✅ {grd_selecionada} foi atualizada com sucesso!"
-        )
+                st.rerun()
+                ####
 
-        st.session_state.processando_devolucao = False
+            except Exception as erro:
 
-        st.rerun()
-        ####
+                st.session_state.processando_devolucao = False
 
-    except Exception as erro:
-
-        st.session_state.processando_devolucao = False
-
-        st.error(
-            f"Erro ao processar devolução: {erro}"
-        )
+                st.error(
+                    f"Erro ao processar devolução: {erro}"
+                )
 
 
 # ==========================================
