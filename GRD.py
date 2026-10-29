@@ -1508,6 +1508,16 @@ if st.button(
     type="primary",
     disabled=st.session_state.processando_cadastro
 ):
+
+# Impede segunda execução
+    if st.session_state.processando_cadastro:
+
+        st.warning(
+            "⚠️ Já existe um cadastro em processamento."
+        )
+
+        st.stop()
+    
     st.session_state.processando_cadastro = True
 
     campos_preenchidos = all([
@@ -2425,6 +2435,16 @@ if st.button(
     type="primary",
     disabled=st.session_state.processando_devolucao
 ):
+
+    # Impede segunda execução
+    if st.session_state.processando_devolucao:
+
+        st.warning(
+            "⚠️ Já existe uma devolução em processamento."
+        )
+
+        st.stop()
+
     st.session_state.processando_devolucao = True
 
     fichas_devolvidas = (
