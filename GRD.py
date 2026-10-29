@@ -1,4 +1,4 @@
-# ALTERAÇÃO
+# CRIAR SITE
 # Manter Site no Ar: streamlit run GRD.py
 # Instalar Biblioteca: pip install  xxxxxx
 
@@ -15,6 +15,17 @@ from openpyxl.styles import Alignment
 from openpyxl.styles import Border, Side
 from github import Github
 from github.GithubException import GithubException
+
+# ==========================================
+# CONTROLE DE PROCESSAMENTO
+# ==========================================
+
+if "processando_cadastro" not in st.session_state:
+    st.session_state.processando_cadastro = False
+
+if "processando_devolucao" not in st.session_state:
+    st.session_state.processando_devolucao = False
+
 
 # ==========================================
 # ATUALIZAR BASE NO GITHUB
@@ -56,6 +67,9 @@ def atualizar_base_github():
     except GithubException as erro:
 
         if erro.status == 409:
+
+            carregar_grds.clear()
+            st.cache_data.clear()
 
             st.error(
                 "⚠️ Outro usuário atualizou a Base de Dados antes desta operação. Atualize a página e tente novamente."
@@ -1473,8 +1487,8 @@ min_value=1,
 step=1,
 width="small"
 ),
-"Revisão": st.column_config.TextColumn(
-"Revisão",
+"Rev.": st.column_config.TextColumn(
+"Rev.",
 width="small"
 ),
 "Escopo(s)": st.column_config.TextColumn(
@@ -1485,7 +1499,12 @@ width="medium"
 )
 
 # Botão de Cadastro
-if st.button("📋 Cadastrar GRD", type="primary"):
+if st.button(
+    "📋 Cadastrar GRD",
+    type="primary",
+    disabled=st.session_state.processando_cadastro
+):
+    st.session_state.processando_cadastro = True
 
     campos_preenchidos = all([
     subestacao,
@@ -1501,6 +1520,9 @@ if st.button("📋 Cadastrar GRD", type="primary"):
     ])
     
     if not campos_preenchidos:
+
+        st.session_state.processando_cadastro = False
+
         st.error("Preencha todos os campos do formulário Cadastrar GRD")
     
     else:
@@ -1508,6 +1530,9 @@ if st.button("📋 Cadastrar GRD", type="primary"):
         fichas_preenchidas = tabela_fichas.replace("", pd.NA).dropna(how="all")
         
         if fichas_preenchidas.empty:
+
+            st.session_state.processando_cadastro = False
+
             st.error("Preencha pelo menos uma linha da tabela Relação de Fichas para Cadastro")
         
         else:
@@ -1550,6 +1575,9 @@ if st.button("📋 Cadastrar GRD", type="primary"):
                     )
         
             if linhas_com_erro:
+
+                st.session_state.processando_cadastro = False
+
                 st.error(
                     f"Existem campos vazios no(s) item(s): {', '.join(linhas_com_erro)}"
                 )
@@ -1594,256 +1622,271 @@ if st.button("📋 Cadastrar GRD", type="primary"):
 
                 arquivo_base = "BASE DE DADOS GRDs CADASTRADAS.xlsx"
 
-                try:
+                with st.spinner(
+                    "Cadastrando GRD e atualizando base..."
+                ):
 
-                    wb_base = load_workbook(arquivo_base)
-                    wb_base.calculation.fullCalcOnLoad = True
-                    wb_base.calculation.forceFullCalc = True
 
-                    ano_aba = str(data.year)
+                    try:
 
-                    if ano_aba not in wb_base.sheetnames:
-                        st.error(
-                            f"A aba {ano_aba} não existe na Base de Dados GRDs Cadastradas."
-                        )
-                        st.stop()
+                        wb_base = load_workbook(arquivo_base)
+                        wb_base.calculation.fullCalcOnLoad = True
+                        wb_base.calculation.forceFullCalc = True
 
-                    ws_base = wb_base[ano_aba]
+                        ano_aba = str(data.year)
 
-                    # Verificar se a GRD já existe na base
-                    grd_existente = False
+                        if ano_aba not in wb_base.sheetnames:
 
-                    for linha in range(2, ws_base.max_row + 1):
+                            st.session_state.processando_cadastro = False
 
-                        valor_grd = ws_base.cell(linha, 1).value
+                            st.error(
+                                f"A aba {ano_aba} não existe na Base de Dados GRDs Cadastradas."
+                            )
+                            st.stop()
 
-                        if valor_grd is None:
-                            continue
+                        ws_base = wb_base[ano_aba]
 
-                        valor_grd = str(valor_grd).strip()
+                        # Verificar se a GRD já existe na base
+                        grd_existente = False
 
-                        if valor_grd == "":
-                            continue
+                        for linha in range(2, ws_base.max_row + 1):
 
-                        if valor_grd == numero_grd:
+                            valor_grd = ws_base.cell(linha, 1).value
 
-                            grd_existente = True
-                            break
+                            if valor_grd is None:
+                                continue
 
-                    if grd_existente:
+                            valor_grd = str(valor_grd).strip()
 
-                        st.error(
-                            f"❌ A GRD {numero_grd} já está cadastrada na base de dados."
-                        )
+                            if valor_grd == "":
+                                continue
 
-                        st.stop()
-                    
+                            if valor_grd == numero_grd:
 
-                    # Procura a primeira linha vazia na coluna A
-                    proxima_linha = None
-
-                    for linha in range(2, ws_base.max_row + 1):
-
-                        valor = ws_base.cell(linha, 1).value
-
-                        if valor is None or str(valor).strip() == "":
-                            proxima_linha = linha
-                            break
-
-                    if proxima_linha is None:
-                        proxima_linha = ws_base.max_row + 1
-
-                    for _, registro in df_exportacao.iterrows():
-
-                        ws_base.cell(proxima_linha, 1).value = registro["Número GRD"]
-                        ws_base.cell(proxima_linha, 2).value = registro["Subestação"]
-                        ws_base.cell(proxima_linha, 3).value = registro["Contratada"]
-                        ws_base.cell(proxima_linha, 4).value = registro["Contrato"]
-                        ws_base.cell(proxima_linha, 5).value = registro["Empreendimento"]
-                        ws_base.cell(proxima_linha, 6).value = registro["Responsável Contratada"]
-                        ws_base.cell(proxima_linha, 7).value = registro["Agrupamento"]
-                        ws_base.cell(proxima_linha, 8).value = registro["Subagrupamento"]
-                        ws_base.cell(proxima_linha, 9).value = registro["Responsável CEMIG - Recebimento"]
-                        ws_base.cell(proxima_linha, 10).value = registro["Identificação Contratada"]
-                        ws_base.cell(proxima_linha, 11).value = registro["Data de Entrada"]
-                        ws_base.cell(proxima_linha, 12).value = registro["Identificação da Ficha"]
-                        ws_base.cell(proxima_linha, 13).value = registro["Título da Ficha"]
-                        ws_base.cell(proxima_linha, 14).value = registro["Qtd. Docs"]
-                        ws_base.cell(proxima_linha, 15).value = registro["Qtd. Pág."]
-                        ws_base.cell(proxima_linha, 16).value = registro["Rev."]
-                        ws_base.cell(proxima_linha, 17).value = registro["Escopo(s)"]
-
-                        # Aplicar bordas em toda a linha cadastrada
-                        for col in range(1, ws_base.max_column + 1):
-                            ws_base.cell(proxima_linha, col).border = borda_fina
-                            
-                        # ==========================================
-                        # COPIAR FORMATAÇÕES E FÓRMULAS COLUNAS V+
-                        # ==========================================
-
-                        # Utiliza a última linha válida como modelo
-                        linha_modelo = None
-
-                        for linha in range(proxima_linha - 1, 1, -1):
-
-                            if ws_base.cell(linha, 22).value is not None:
-                                linha_modelo = linha
+                                grd_existente = True
                                 break
 
-                        # Se não encontrar, usa a linha 2
-                        if linha_modelo is None:
-                            linha_modelo = 2
+                        if grd_existente:
 
-                        for col in range(22, ws_base.max_column + 1):
+                            st.session_state.processando_cadastro = False
 
-                            origem = ws_base.cell(linha_modelo, col)
-                            destino = ws_base.cell(proxima_linha, col)
+                            st.error(
+                                f"❌ A GRD {numero_grd} já está cadastrada na base de dados."
+                            )
 
-                            # Copiar toda a formatação
-                            destino.font = copy(origem.font)
-                            destino.fill = copy(origem.fill)
-                            destino.border = copy(origem.border)
-                            destino.alignment = copy(origem.alignment)
-                            destino.number_format = origem.number_format
-                            destino.protection = copy(origem.protection)
+                            st.stop()
+                        
 
-                            # Copiar fórmula ajustando para a nova linha
-                            if isinstance(origem.value, str) and origem.value.startswith("="):
+                        # Procura a primeira linha vazia na coluna A
+                        proxima_linha = None
 
-                                destino.value = Translator(
-                                    origem.value,
-                                    origin=origem.coordinate
-                                ).translate_formula(destino.coordinate)
+                        for linha in range(2, ws_base.max_row + 1):
 
-                            else:
-                                destino.value = origem.value                 
+                            valor = ws_base.cell(linha, 1).value
 
-                        # CENTRALIZAR COLUNAS J EM DIANTE
-                        for col in range(10, ws_base.max_column + 1):
+                            if valor is None or str(valor).strip() == "":
+                                proxima_linha = linha
+                                break
 
-                            ws_base.cell(
-                                proxima_linha,
-                                col
-                            ).alignment = Alignment(
-                                horizontal="center",
-                                vertical="center"
-                            )    
+                        if proxima_linha is None:
+                            proxima_linha = ws_base.max_row + 1
 
-                        proxima_linha += 1
+                        for _, registro in df_exportacao.iterrows():
 
-                        # Ajustar largura automática das colunas A até U
-                        for coluna in ws_base.iter_cols(min_col=1, max_col=21):
+                            ws_base.cell(proxima_linha, 1).value = registro["Número GRD"]
+                            ws_base.cell(proxima_linha, 2).value = registro["Subestação"]
+                            ws_base.cell(proxima_linha, 3).value = registro["Contratada"]
+                            ws_base.cell(proxima_linha, 4).value = registro["Contrato"]
+                            ws_base.cell(proxima_linha, 5).value = registro["Empreendimento"]
+                            ws_base.cell(proxima_linha, 6).value = registro["Responsável Contratada"]
+                            ws_base.cell(proxima_linha, 7).value = registro["Agrupamento"]
+                            ws_base.cell(proxima_linha, 8).value = registro["Subagrupamento"]
+                            ws_base.cell(proxima_linha, 9).value = registro["Responsável CEMIG - Recebimento"]
+                            ws_base.cell(proxima_linha, 10).value = registro["Identificação Contratada"]
+                            ws_base.cell(proxima_linha, 11).value = registro["Data de Entrada"]
+                            ws_base.cell(proxima_linha, 12).value = registro["Identificação da Ficha"]
+                            ws_base.cell(proxima_linha, 13).value = registro["Título da Ficha"]
+                            ws_base.cell(proxima_linha, 14).value = registro["Qtd. Docs"]
+                            ws_base.cell(proxima_linha, 15).value = registro["Qtd. Pág."]
+                            ws_base.cell(proxima_linha, 16).value = registro["Rev."]
+                            ws_base.cell(proxima_linha, 17).value = registro["Escopo(s)"]
 
-                            maior_tamanho = 0
-                            letra_coluna = get_column_letter(coluna[0].column)
+                            # Aplicar bordas em toda a linha cadastrada
+                            for col in range(1, ws_base.max_column + 1):
+                                ws_base.cell(proxima_linha, col).border = borda_fina
+                                
+                            # ==========================================
+                            # COPIAR FORMATAÇÕES E FÓRMULAS COLUNAS V+
+                            # ==========================================
 
-                            for cell in coluna:
+                            # Utiliza a última linha válida como modelo
+                            linha_modelo = None
 
-                                if cell.value is not None:
+                            for linha in range(proxima_linha - 1, 1, -1):
 
-                                    tamanho_texto = len(str(cell.value))
+                                if ws_base.cell(linha, 22).value is not None:
+                                    linha_modelo = linha
+                                    break
 
-                                    if tamanho_texto > maior_tamanho:
-                                        maior_tamanho = tamanho_texto
+                            # Se não encontrar, usa a linha 2
+                            if linha_modelo is None:
+                                linha_modelo = 2
 
-                            ws_base.column_dimensions[letra_coluna].width = min(maior_tamanho + 5, 80)
+                            for col in range(22, ws_base.max_column + 1):
 
-                        # Larguras fixas das colunas de controle
-                        ws_base.column_dimensions["V"].width = 15
-                        ws_base.column_dimensions["W"].width = 18
-                        ws_base.column_dimensions["X"].width = 22
-                        ws_base.column_dimensions["Y"].width = 22
+                                origem = ws_base.cell(linha_modelo, col)
+                                destino = ws_base.cell(proxima_linha, col)
 
-                    wb_base.save(arquivo_base)
+                                # Copiar toda a formatação
+                                destino.font = copy(origem.font)
+                                destino.fill = copy(origem.fill)
+                                destino.border = copy(origem.border)
+                                destino.alignment = copy(origem.alignment)
+                                destino.number_format = origem.number_format
+                                destino.protection = copy(origem.protection)
 
-                    if atualizar_base_github():
-                        st.success("Base atualizada no GitHub")
-                    else:
-                        st.warning(
-                            "GRD cadastrada localmente, porém a atualização do GitHub falhou."
-                        )               
+                                # Copiar fórmula ajustando para a nova linha
+                                if isinstance(origem.value, str) and origem.value.startswith("="):
+
+                                    destino.value = Translator(
+                                        origem.value,
+                                        origin=origem.coordinate
+                                    ).translate_formula(destino.coordinate)
+
+                                else:
+                                    destino.value = origem.value                 
+
+                            # CENTRALIZAR COLUNAS J EM DIANTE
+                            for col in range(10, ws_base.max_column + 1):
+
+                                ws_base.cell(
+                                    proxima_linha,
+                                    col
+                                ).alignment = Alignment(
+                                    horizontal="center",
+                                    vertical="center"
+                                )    
+
+                            proxima_linha += 1
+
+                            # Ajustar largura automática das colunas A até U
+                            for coluna in ws_base.iter_cols(min_col=1, max_col=21):
+
+                                maior_tamanho = 0
+                                letra_coluna = get_column_letter(coluna[0].column)
+
+                                for cell in coluna:
+
+                                    if cell.value is not None:
+
+                                        tamanho_texto = len(str(cell.value))
+
+                                        if tamanho_texto > maior_tamanho:
+                                            maior_tamanho = tamanho_texto
+
+                                ws_base.column_dimensions[letra_coluna].width = min(maior_tamanho + 5, 80)
+
+                            # Larguras fixas das colunas de controle
+                            ws_base.column_dimensions["V"].width = 15
+                            ws_base.column_dimensions["W"].width = 18
+                            ws_base.column_dimensions["X"].width = 22
+                            ws_base.column_dimensions["Y"].width = 22
+
+                        wb_base.save(arquivo_base)
+                        wb_base.close()
+
+                        st.session_state.processando_cadastro = False
+
+                        if atualizar_base_github():
+                            st.success("Base atualizada no GitHub")
+                        else:
+                            st.warning(
+                                "GRD cadastrada localmente, porém a atualização do GitHub falhou."
+                            )               
+
+                        # Limpar cache da consulta de GRDs
+                        carregar_grds.clear()
+
+                    except Exception as erro:
+
+                        st.session_state.processando_cadastro = False
+
+                        st.error(
+                            f"Erro ao atualizar a Base de Dados: {erro}"
+                        )
+
+                        st.stop()
+                    #
+
+                    nome_arquivo = f"{numero_grd}.xlsx"
+
+                    df_exportacao = df_exportacao.rename(columns={
+                        "Subestação": "Subestação / Linha"
+                    })
+
+                    df_exportacao.to_excel(nome_arquivo, index=False)
+
+                    # Abrir arquivo gerado
+                    wb = load_workbook(nome_arquivo)
+
+                    ws = wb.active
+
+                    # Renomear aba
+                    ws.title = "GRD"
+
+                    # Formatar cabeçalho
+                    for cell in ws[1]:
+                        cell.font = Font(
+                            name="Aptos Narrow",
+                            bold=True,
+                            italic=True
+                        )
+
+                    # Ajustar largura das colunas
+                    for coluna in ws.columns:
+
+                        maior_tamanho = 0
+                        letra_coluna = get_column_letter(coluna[0].column)
+
+                        for cell in coluna:
+
+                            if cell.value is not None:
+
+                                tamanho_texto = len(str(cell.value))
+
+                                if tamanho_texto > maior_tamanho:
+                                    maior_tamanho = tamanho_texto
+
+                        ws.column_dimensions[letra_coluna].width = min(maior_tamanho + 5, 60)
+
+                    # Aplicar bordas em todas as células utilizadas
+                    for linha in ws.iter_rows(
+                        min_row=1,
+                        max_row=ws.max_row,
+                        min_col=1,
+                        max_col=ws.max_column
+                    ):
+                        for cell in linha:
+                            cell.border = borda_fina
+
+                    wb.save(nome_arquivo)
+                    wb.close()
+
+                    st.session_state.processando_cadastro = False
+
+                    st.success("GRD Cadastrada com Sucesso!")
+
+                    with open(nome_arquivo, "rb") as arquivo:
+
+                        st.download_button(
+                            label="📥 Baixar Arquivo GRD",
+                            data=arquivo,
+                            file_name=nome_arquivo,
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        )
                     
-                    wb_base.calculation.fullCalcOnLoad = True
-                    wb_base.calculation.forceFullCalc = True
-
-                    # Limpar cache da consulta de GRDs
-                    carregar_grds.clear()
-
-                except Exception as erro:
-
-                    st.error(
-                        f"Erro ao atualizar a Base de Dados: {erro}"
-                    )
-
-                    st.stop()
-                #
-
-                nome_arquivo = f"{numero_grd}.xlsx"
-
-                df_exportacao = df_exportacao.rename(columns={
-                    "Subestação": "Subestação / Linha"
-                })
-
-                df_exportacao.to_excel(nome_arquivo, index=False)
-
-                # Abrir arquivo gerado
-                wb = load_workbook(nome_arquivo)
-
-                ws = wb.active
-
-                # Renomear aba
-                ws.title = "GRD"
-
-                # Formatar cabeçalho
-                for cell in ws[1]:
-                    cell.font = Font(
-                        name="Aptos Narrow",
-                        bold=True,
-                        italic=True
-                    )
-
-                # Ajustar largura das colunas
-                for coluna in ws.columns:
-
-                    maior_tamanho = 0
-                    letra_coluna = get_column_letter(coluna[0].column)
-
-                    for cell in coluna:
-
-                        if cell.value is not None:
-
-                            tamanho_texto = len(str(cell.value))
-
-                            if tamanho_texto > maior_tamanho:
-                                maior_tamanho = tamanho_texto
-
-                    ws.column_dimensions[letra_coluna].width = min(maior_tamanho + 5, 60)
-
-                # Aplicar bordas em todas as células utilizadas
-                for linha in ws.iter_rows(
-                    min_row=1,
-                    max_row=ws.max_row,
-                    min_col=1,
-                    max_col=ws.max_column
-                ):
-                    for cell in linha:
-                        cell.border = borda_fina
-
-                wb.save(nome_arquivo)
-
-                st.success("GRD Cadastrada com Sucesso!")
-
-                with open(nome_arquivo, "rb") as arquivo:
-
-                    st.download_button(
-                        label="📥 Baixar Arquivo GRD",
-                        data=arquivo,
-                        file_name=nome_arquivo,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    )
-                   
-                    # FIM DO CADASTRO DA GRD
-                    # ======================
+                        # FIM DO CADASTRO DA GRD
+                        # ======================
 
 # ==========================================
 # CONSULTA GRDs CADASTRADAS
@@ -2366,8 +2409,10 @@ if "msg_devolucao" in st.session_state:
 
 if st.button(
     "📤 Devolver GRD",
-    type="primary"
+    type="primary",
+    disabled=st.session_state.processando_devolucao
 ):
+    st.session_state.processando_devolucao = True
 
     fichas_devolvidas = (
         tabela_devolucao
@@ -2381,6 +2426,8 @@ if st.button(
 
     if not grd_selecionada:
 
+        st.session_state.processando_devolucao = False
+
         st.error(
             "Selecione uma GRD."
         )
@@ -2389,6 +2436,8 @@ if st.button(
 
     if not responsavel_devolucao:
 
+        st.session_state.processando_devolucao = False
+
         st.error(
             "Selecione o Responsável CEMIG - Devolução."
         )
@@ -2396,6 +2445,8 @@ if st.button(
         st.stop()
 
     if data_saida is None:
+
+        st.session_state.processando_devolucao = False
 
         st.error(
             "Informe a Data de Saída."
@@ -2408,6 +2459,8 @@ if st.button(
     # ==================================
 
     if fichas_devolvidas.empty:
+
+        st.session_state.processando_devolucao = False
 
         st.error(
             "Preencha pelo menos uma linha da tabela Relação de Fichas para Devolução."
@@ -2447,6 +2500,8 @@ if st.button(
             )
 
     if linhas_com_erro:
+
+        st.session_state.processando_devolucao = False
 
         st.error(
             f"Existem campos vazios no(s) item(s): {', '.join(linhas_com_erro)}"
@@ -2571,6 +2626,8 @@ if st.button(
 
         if fichas_nao_encontradas:
 
+            st.session_state.processando_devolucao = False
+
             st.error(
                 "As seguintes fichas não foram encontradas:"
             )
@@ -2588,6 +2645,8 @@ if st.button(
         # ==================================
 
         if fichas_ja_devolvidas:
+
+            st.session_state.processando_devolucao = False
 
             st.error(
                 "As seguintes fichas já foram devolvidas:"
@@ -2636,6 +2695,9 @@ if st.button(
             )
 
         wb.save(arquivo_base)
+        wb.close()
+
+        st.session_state.processando_devolucao = False
         
         if atualizar_base_github():
             st.success("Base atualizada no GitHub")
@@ -2885,10 +2947,14 @@ if st.button(
             f"✅ {grd_selecionada} foi atualizada com sucesso!"
         )
 
+        st.session_state.processando_devolucao = False
+
         st.rerun()
         ####
 
     except Exception as erro:
+
+        st.session_state.processando_devolucao = False
 
         st.error(
             f"Erro ao processar devolução: {erro}"
