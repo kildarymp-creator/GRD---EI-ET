@@ -277,7 +277,11 @@ if "reset_form" not in st.session_state:
 
 
 # Botão Nova GRD - Apagar campos
+
 if st.sidebar.button("🆕 Nova GRD", type="primary"):
+
+    # Reabilitar botão de cadastro
+    st.session_state.processando_cadastro = False
 
     st.session_state.reset_form += 1
 
@@ -1816,6 +1820,11 @@ if st.button(
                         )
 
                         st.stop()
+
+                    finally:
+
+                        st.session_state.processando_cadastro = False
+                   
                     #
 
                     nome_arquivo = f"{numero_grd}.xlsx"
@@ -2175,7 +2184,11 @@ if "reset_devolucao" not in st.session_state:
 st.markdown("---")
 st.markdown("#### 📤 Devolução de GRD")
 
-if st.button("🗑️ Limpar Campos Editáveis"):
+if st.button("🗑️ Limpar"):
+
+    # Reabilitar botão de devolução
+    st.session_state.processando_devolucao = False
+
     st.session_state.reset_devolucao += 1
     st.rerun()
 
@@ -2964,6 +2977,9 @@ if st.button(
                     f"Erro ao processar devolução: {erro}"
                 )
 
+            finally:
+
+                st.session_state.processando_devolucao = False
 
 # ==========================================
 # DASHBOARD
