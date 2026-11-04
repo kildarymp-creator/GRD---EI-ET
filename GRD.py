@@ -1837,7 +1837,7 @@ if st.button(
                    
                     #
 
-                    nome_arquivo = f"{numero_grd}.xlsx"
+                    nome_arquivo = f"CADASTRO_{numero_grd}.xlsx"
 
                     df_exportacao = df_exportacao.rename(columns={
                         "Subestação": "Subestação / Linha"
