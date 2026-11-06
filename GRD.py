@@ -2789,7 +2789,7 @@ if st.button(
         st.session_state.processando_devolucao = False
 
         st.error(
-            "Selecione uma GRD."
+            "Selecione uma GRD ou importe um Formulário GRD."
         )
 
         st.stop()
