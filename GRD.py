@@ -2185,6 +2185,109 @@ except Exception as erro:
     )
 
 # ==========================================
+# IMPORTAÇÃO FORMULÁRIO DEVOLUÇÃO
+# ==========================================
+
+def importar_devolucao_xlsb(arquivo):
+
+    df_form = pd.read_excel(
+        arquivo,
+        engine="pyxlsb",
+        header=None
+    )
+
+    dados = {}
+
+    # Número GRD
+    try:
+        dados["NumeroGRD"] = str(
+            df_form.iloc[9, 3]
+        ).strip()
+    except:
+        dados["NumeroGRD"] = ""
+
+    # Data de Saída
+    try:
+
+        valor_data = df_form.iloc[8, 8]
+
+        if pd.notna(valor_data):
+
+            if isinstance(valor_data, (int, float)):
+
+                dados["DataSaida"] = pd.to_datetime(
+                    valor_data,
+                    unit="D",
+                    origin="1899-12-30"
+                ).date()
+
+            else:
+
+                dados["DataSaida"] = pd.to_datetime(
+                    valor_data,
+                    dayfirst=True,
+                    errors="coerce"
+                ).date()
+
+        else:
+            dados["DataSaida"] = None
+
+    except:
+        dados["DataSaida"] = None
+
+    # Responsável Devolução
+    try:
+
+        dados["ResponsavelDevolucao"] = str(
+            df_form.iloc[8, 12]
+        ).strip()
+
+    except:
+        dados["ResponsavelDevolucao"] = ""
+
+    fichas = []
+
+    for linha in range(12, len(df_form)):
+
+        identificacao = df_form.iloc[linha, 2]
+
+        texto = " ".join(
+            str(v)
+            for v in df_form.iloc[linha]
+            if pd.notna(v)
+        ).upper()
+
+        if "OBSERVA" in texto:
+            break
+
+        if pd.isna(identificacao):
+            continue
+
+        fichas.append({
+
+            "Item":
+                "" if pd.isna(df_form.iloc[linha, 1])
+                else str(df_form.iloc[linha, 1]),
+
+            "Identificação da Ficha":
+                "" if pd.isna(df_form.iloc[linha, 2])
+                else str(df_form.iloc[linha, 2]),
+
+            "Status Carimbo":
+                "" if pd.isna(df_form.iloc[linha, 13])
+                else str(df_form.iloc[linha, 13]),
+
+            "Status Ficha":
+                "" if pd.isna(df_form.iloc[linha, 14])
+                else str(df_form.iloc[linha, 14])
+
+        })
+
+    dados["Fichas"] = pd.DataFrame(fichas)
+
+    return dados
+
+# ==========================================
 # DEVOLVER GRD
 # ==========================================
 
@@ -2194,13 +2297,127 @@ if "reset_devolucao" not in st.session_state:
 st.markdown("---")
 st.markdown("#### 📤 Devolução de GRD")
 
+col_upload, col_vazio = st.columns([2.5, 7.5])
+
+with col_upload:
+
+    arquivo_devolucao_importado = st.file_uploader(
+        "📂 Importar Formulário GRD para Devolução",
+        type=["xlsb"],
+        key="upload_devolucao"
+    )
+
+if arquivo_devolucao_importado:
+
+    try:
+
+        dados_devolucao_importados = (
+            importar_devolucao_xlsb(
+                arquivo_devolucao_importado
+            )
+        )
+
+        numero_importado = (
+            dados_devolucao_importados.get(
+                "NumeroGRD",
+                ""
+            )
+        )
+
+        carregar_grds.clear()
+
+        df_grds_validacao = carregar_grds()
+
+        numero_importado_limpo = (
+            str(numero_importado)
+            .strip()
+            .upper()
+        )
+
+        grd_existe = any(
+
+            pd.notna(grd)
+
+            and
+
+            str(grd).strip().upper()
+            ==
+            numero_importado_limpo
+
+            for grd in df_grds_validacao["Número GRD"]
+
+        )
+
+        if not grd_existe:
+
+            st.error(
+                f"❌ A GRD '{numero_importado}' não existe na Base de Dados GRDs Cadastradas."
+            )
+
+        else:
+
+            st.session_state[
+                "dados_devolucao_importados"
+            ] = dados_devolucao_importados
+
+            st.success(
+                "✅ Formulário de devolução importado."
+            )
+
+    except Exception as erro:
+
+        st.error(
+            f"Erro ao importar: {erro}"
+        )
+
 if st.button("🗑️ Limpar"):
 
     # Reabilitar botão de devolução
     st.session_state.processando_devolucao = False
 
     st.session_state.reset_devolucao += 1
+
+    # Limpar dados importados
+    if "dados_devolucao_importados" in st.session_state:
+        del st.session_state[
+            "dados_devolucao_importados"
+        ]
+
+    # Limpar status de localização da GRD
+    if "grd_importada_localizada" in st.session_state:
+        del st.session_state[
+            "grd_importada_localizada"
+        ]
+
+    # Limpar arquivos de download gerados
+    if "arquivo_devolucao_bytes" in st.session_state:
+        del st.session_state[
+            "arquivo_devolucao_bytes"
+        ]
+
+    if "arquivo_devolucao_nome" in st.session_state:
+        del st.session_state[
+            "arquivo_devolucao_nome"
+        ]
+
+    if "msg_devolucao" in st.session_state:
+        del st.session_state[
+            "msg_devolucao"
+        ]
+
+    # Limpar componentes da tela
+    for chave in list(st.session_state.keys()):
+
+        if (
+            "grd_devolucao_" in chave
+            or "responsavel_devolucao_" in chave
+            or "data_saida_" in chave
+            or "tabela_devolucao_" in chave
+        ):
+            del st.session_state[chave]
+
     st.rerun()
+
 
 df_grds = carregar_grds()
 
@@ -2211,6 +2428,50 @@ lista_grds = [""] + sorted(
     .unique()
     .tolist()
 )
+
+dados_devolucao_importados = (
+    st.session_state.get(
+        "dados_devolucao_importados",
+        {}
+    )
+)
+
+if dados_devolucao_importados:
+
+    numero_importado = (
+        dados_devolucao_importados.get(
+            "NumeroGRD",
+            ""
+        )
+    )
+
+    if numero_importado:
+
+        numero_importado_limpo = (
+            str(numero_importado)
+            .strip()
+            .upper()
+        )
+
+        for grd in lista_grds:
+
+            if (
+                str(grd)
+                .strip()
+                .upper()
+                ==
+                numero_importado_limpo
+            ):
+
+                st.session_state[
+                    f"grd_devolucao_{st.session_state.reset_devolucao}"
+                ] = grd
+
+                st.session_state[
+                    "grd_importada_localizada"
+                ] = True
+
+                break
 
 with st.container(border=True):
 
@@ -2292,6 +2553,31 @@ with st.container(border=True):
 
     with col2:
 
+        if dados_devolucao_importados:
+
+            resp_importado = (
+                dados_devolucao_importados.get(
+                    "ResponsavelDevolucao",
+                    ""
+                )
+            )
+
+            if resp_importado:
+
+                for resp in responsaveis_devolucao:
+
+                    if (
+                        str(resp).strip().upper()
+                        ==
+                        str(resp_importado).strip().upper()
+                    ):
+
+                        st.session_state[
+                            f"responsavel_devolucao_{st.session_state.reset_devolucao}"
+                        ] = resp
+
+                        break
+
         responsavel_devolucao = st.selectbox(
             "Responsável CEMIG - Devolução",
             [""] + responsaveis_devolucao,
@@ -2299,6 +2585,20 @@ with st.container(border=True):
         )
 
     with col3:
+
+        if dados_devolucao_importados:
+
+            data_importada = (
+                dados_devolucao_importados.get(
+                    "DataSaida"
+                )
+            )
+
+            if data_importada:
+
+                st.session_state[
+                    f"data_saida_{st.session_state.reset_devolucao}"
+                ] = data_importada
 
         data_saida = st.date_input(
             "Data de Saída",
@@ -2313,14 +2613,41 @@ with st.container(border=True):
 
     st.markdown("#### Relação de Fichas para Devolução")
 
-    dados_devolucao = pd.DataFrame(
-    {
-        "Item": [""] * 100,
-        "Identificação da Ficha": [""] * 100,
-        "Status Carimbo": [""] * 100,
-        "Status Ficha": [""] * 100
-    }
-    )
+    if (
+        "dados_devolucao_importados"
+        in st.session_state
+    ):
+
+        dados_devolucao = (
+            st.session_state[
+                "dados_devolucao_importados"
+            ]["Fichas"]
+        )
+
+        linhas_vazias = pd.DataFrame({
+
+            "Item": [""] * 100,
+            "Identificação da Ficha": [""] * 100,
+            "Status Carimbo": [""] * 100,
+            "Status Ficha": [""] * 100
+
+        })
+
+        dados_devolucao = pd.concat(
+            [dados_devolucao, linhas_vazias],
+            ignore_index=True
+        )
+
+    else:
+
+        dados_devolucao = pd.DataFrame({
+
+            "Item": [""] * 100,
+            "Identificação da Ficha": [""] * 100,
+            "Status Carimbo": [""] * 100,
+            "Status Ficha": [""] * 100
+
+        }) 
 
     tabela_devolucao = st.data_editor(
 
