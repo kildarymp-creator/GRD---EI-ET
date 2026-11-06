@@ -495,7 +495,7 @@ st.sidebar.write('## Cadastrar GRD')
 st.sidebar.markdown("---")
 
 arquivo_importado = st.sidebar.file_uploader(
-    "📂 Importar Formulário GRD",
+    "📂 Importar Formulário GRD para Cadastro",
     type=["xlsb"]
 )
 
