@@ -2159,7 +2159,8 @@ try:
         # ==========================================
         # TABELA
         # ==========================================
-
+        
+        st.write(st.session_state.keys())
         st.write(dados.head())
         st.write(dados.dtypes)
 
