@@ -436,13 +436,13 @@ def importar_formulario_xlsb(arquivo):
                 "Qtd. Docs": (
                     ""
                     if pd.isna(df_form.iloc[linha, 9])
-                    else df_form.iloc[linha, 9]
+                    else str(df_form.iloc[linha, 9])
                 ),
 
                 "Qtd. Pág.": (
                     ""
                     if pd.isna(df_form.iloc[linha, 10])
-                    else df_form.iloc[linha, 10]
+                    else str(df_form.iloc[linha, 10])
                 ),
 
                 "Rev.": (
@@ -2159,10 +2159,6 @@ try:
         # ==========================================
         # TABELA
         # ==========================================
-        
-        st.write(st.session_state.keys())
-        st.write(dados.head())
-        st.write(dados.dtypes)
 
         st.data_editor(
             df_filtrado,
