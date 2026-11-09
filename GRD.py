@@ -2160,6 +2160,7 @@ try:
         # TABELA
         # ==========================================
 
+        st.write(dados.head())
         st.write(dados.dtypes)
 
         st.data_editor(
