@@ -1441,8 +1441,8 @@ linhas_vazias = pd.DataFrame(
     "Item": [""] * 80,
     "Identificação da Ficha": [""] * 80,
     "Título da Ficha": [""] * 80,
-    "Qtd. Docs": ["None"] * 80,
-    "Qtd. Pág.": ["None"] * 80,
+    "Qtd. Docs": [""] * 80,
+    "Qtd. Pág.": [""] * 80,
     "Rev.": [""] * 80,
     "Escopo(s)": [""] * 80,
 }
@@ -2159,6 +2159,8 @@ try:
         # ==========================================
         # TABELA
         # ==========================================
+
+        st.write(dados.dtypes)
 
         st.data_editor(
             df_filtrado,
