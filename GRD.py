@@ -4493,7 +4493,7 @@ if not df_iape.empty:
     )
 
     fig_iape.update_layout(
-        title="Indicador IADT por Mês",
+        title="Indicador IADT por Mês - IADT(%) = ((Qtde de Documentos no Prazo/Qtde total de Documentos) x 100) x FV",
         height=600,
         hovermode="x unified",
         plot_bgcolor="white",
